@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Legal Easy Widget Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .widget {
+      border: 2px solid #e1e5e9;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+      background: #fafbfc;
+    }
+    .loading {
+      color: #666;
+      font-style: italic;
+    }
+    .error {
+      color: #d73a49;
+      background: #ffeef0;
+      padding: 12px;
+      border-radius: 4px;
+      border-left: 4px solid #d73a49;
+    }
+    .success {
+      color: #28a745;
+      background: #f0fff4;
+      padding: 12px;
+      border-radius: 4px;
+      border-left: 4px solid #28a745;
+    }
+    .summary-content {
+      margin-top: 16px;
+    }
+    .risk-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+    .risk-high { background: #ffeef0; color: #d73a49; }
+    .risk-medium { background: #fff8c5; color: #d29922; }
+    .risk-low { background: #f0fff4; color: #28a745; }
+    .clause {
+      background: white;
+      border: 1px solid #e1e5e9;
+      border-radius: 4px;
+      padding: 12px;
+      margin: 8px 0;
+    }
+    .clause-tag {
+      font-weight: bold;
+      color: #586069;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+    .clause-text {
+      margin-top: 4px;
+      color: #24292e;
+    }
+    .highlights {
+      background: #f1f8ff;
+      border: 1px solid #c8e1ff;
+      border-radius: 4px;
+      padding: 12px;
+      margin: 12px 0;
+    }
+    .highlights h4 {
+      margin: 0 0 8px 0;
+      color: #0366d6;
+    }
+    .highlights ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .metadata {
+      font-size: 12px;
+      color: #586069;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #e1e5e9;
+    }
+    .json-display {
+      background: #f6f8fa;
+      border: 1px solid #e1e5e9;
+      border-radius: 4px;
+      padding: 12px;
+      margin-top: 16px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 12px;
+      overflow-x: auto;
+    }
+    .controls {
+      margin-bottom: 20px;
+    }
+    .controls input, .controls button {
+      padding: 8px 12px;
+      margin: 4px;
+      border: 1px solid #d1d5da;
+      border-radius: 4px;
+    }
+    .controls button {
+      background: #0366d6;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .controls button:hover {
+      background: #025cc5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Legal Easy Widget Test</h1>
+    
+    <div class="controls">
+      <input type="text" id="publicId" placeholder="Enter public ID" value="d94daeda-39a7-49f3-bd8b-86b663598f92" style="width: 300px;">
+      <input type="text" id="lang" placeholder="Language" value="en" style="width: 80px;">
+      <button onclick="loadSummary()">Load Summary</button>
+    </div>
+
+    <div class="widget">
+      <h3>Summary Widget (API Test)</h3>
+      <div id="widget-content">
+        <div class="loading">Click "Load Summary" to test the API...</div>
+      </div>
+    </div>
+
+    <div class="widget">
+      <h3>Standalone Widget (Embed Test)</h3>
+      <div data-legal-easy-widget
+           data-public-id="d94daeda-39a7-49f3-bd8b-86b663598f92"
+           data-lang="en"></div>
+    </div>
+
+    <div class="widget">
+      <h3>Raw JSON Response</h3>
+      <div id="json-content">
+        <div class="loading">No data loaded yet...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function loadSummary() {
+      const publicId = document.getElementById('publicId').value.trim();
+      const lang = document.getElementById('lang').value.trim() || 'en';
+      
+      if (!publicId) {
+        showError('Please enter a public ID');
+        return;
+      }
+
+      const widgetContent = document.getElementById('widget-content');
+      const jsonContent = document.getElementById('json-content');
+      
+      // Show loading state
+      widgetContent.innerHTML = '<div class="loading">Loading summary...</div>';
+      jsonContent.innerHTML = '<div class="loading">Loading JSON...</div>';
+
+      try {
+        const response = await fetch(`/api/embed/${publicId}?lang=${lang}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || `HTTP ${response.status}`);
+        }
+
+        // Display formatted summary
+        displaySummary(data, widgetContent);
+        
+        // Display raw JSON
+        jsonContent.innerHTML = `<div class="json-display">${JSON.stringify(data, null, 2)}</div>`;
+
+      } catch (error) {
+        const errorMsg = `Error: ${error.message}`;
+        widgetContent.innerHTML = `<div class="error">${errorMsg}</div>`;
+        jsonContent.innerHTML = `<div class="error">${errorMsg}</div>`;
+      }
+    }
+
+    function displaySummary(data, container) {
+      const riskClass = data.overallRisk === 'R' ? 'risk-high' : 
+                       data.overallRisk === 'Y' ? 'risk-medium' : 'risk-low';
+      
+      const riskText = data.overallRisk === 'R' ? 'High Risk' :
+                      data.overallRisk === 'Y' ? 'Medium Risk' : 'Low Risk';
+
+      let html = `
+        <div class="success">✓ Summary loaded successfully</div>
+        <div class="summary-content">
+          <h2>${data.policyTitle}</h2>
+          <div class="risk-badge ${riskClass}">${riskText}</div>
+      `;
+
+      if (data.highlights && data.highlights.length > 0) {
+        html += `
+          <div class="highlights">
+            <h4>Key Highlights</h4>
+            <ul>
+              ${data.highlights.map(highlight => `<li>${highlight}</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      }
+
+      if (data.clauses && data.clauses.length > 0) {
+        html += '<h4>Policy Clauses</h4>';
+        data.clauses.forEach(clause => {
+          const clauseRiskClass = clause.risk === 'R' ? 'risk-high' : 
+                                 clause.risk === 'Y' ? 'risk-medium' : 'risk-low';
+          const clauseRiskText = clause.risk === 'R' ? 'High' :
+                                clause.risk === 'Y' ? 'Medium' : 'Low';
+          
+          html += `
+            <div class="clause">
+              <div class="clause-tag">${clause.tag} - <span class="${clauseRiskClass}">${clauseRiskText} Risk</span></div>
+              <div class="clause-text">${clause.plain_english}</div>
+            </div>
+          `;
+        });
+      }
+
+      html += `
+          <div class="metadata">
+            <div>Locale: ${data.locale}</div>
+            <div>Last Updated: ${new Date(data.updatedAt).toLocaleString()}</div>
+          </div>
+        </div>
+      `;
+
+      container.innerHTML = html;
+    }
+
+    function showError(message) {
+      document.getElementById('widget-content').innerHTML = `<div class="error">${message}</div>`;
+      document.getElementById('json-content').innerHTML = `<div class="error">${message}</div>`;
+    }
+
+    // Load summary on page load if public ID is provided
+    window.addEventListener('load', () => {
+      const publicId = document.getElementById('publicId').value.trim();
+      if (publicId) {
+        loadSummary();
+      }
+    });
+  </script>
+  
+  <!-- Load the standalone widget script -->
+  <script src="/embed.js"></script>
+</body>
+</html>
