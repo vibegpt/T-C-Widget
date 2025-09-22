@@ -81,13 +81,13 @@ export async function callOpenAIJson(messages: string[]) {
   return JSON.parse(content);
 }
 
-export function safeParseClauses(obj: any): ClauseOut[] {
+export function safeParseClauses(obj: unknown): ClauseOut[] {
   const arr = Array.isArray(obj?.clauses) ? obj.clauses : [];
   const out: ClauseOut[] = [];
   for (const c of arr) {
     const tag = (TAXONOMY.includes(c?.tag) ? c.tag : "other") as ClauseTag;
     const risk = (["R","Y","G"].includes(c?.risk) ? c.risk : "Y") as Risk;
-    let plain = String(c?.plain_english || "").trim();
+    const plain = String(c?.plain_english || "").trim();
     if (!plain) continue;
     const rationale = String(c?.rationale || "").trim();
     const excerpt = String(c?.text_excerpt || "").slice(0, 240);

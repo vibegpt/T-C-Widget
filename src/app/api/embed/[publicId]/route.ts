@@ -157,7 +157,7 @@ export async function GET(
         "Cache-Control": "public, max-age=60, stale-while-revalidate=600",
       },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json({ error: err?.message || "Server error" }, { 
       status: 500,
       headers: CORS_HEADERS
