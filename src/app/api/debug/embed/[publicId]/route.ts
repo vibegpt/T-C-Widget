@@ -22,31 +22,27 @@ export async function GET(_: Request, ctx: { params: Promise<{ publicId: string 
     .order("created_at",{ascending:false})
     .limit(10);
 
-  let summaries: any = null;
-  let clauses: any = null;
+  // Summaries for current version (any locale), newest first
+  const summaries = await supabaseAdmin
+    .from("summaries")
+    .select("id, overall_risk, grade_level, locale, is_translated, summary_json, created_at")
+    .eq("policy_version_id", policy.data.current_version_id)
+    .order("created_at", { ascending: false })
+    .limit(10);
 
-  if (policy.data.current_version_id) {
-    const summariesResult = await supabaseAdmin
-      .from("summaries")
-      .select("id,policy_version_id,locale,overall_risk,updated_at")
-      .eq("policy_version_id", policy.data.current_version_id);
-
-    const clausesResult = await supabaseAdmin
-      .from("clauses")
-      .select("tag,risk,locale,substring(plain_english,1,100)")
-      .eq("policy_version_id", policy.data.current_version_id)
-      .limit(20);
-
-    summaries = summariesResult;
-    clauses = clausesResult;
-  }
+  // Clauses for current version (any tag/locale), newest-ish first
+  const clauses = await supabaseAdmin
+    .from("clauses")
+    .select("id, tag, risk, locale, plain_english, created_at")
+    .eq("policy_version_id", policy.data.current_version_id)
+    .order("created_at", { ascending: false })
+    .limit(20);
 
   return NextResponse.json({
-    envProject: process.env.NEXT_PUBLIC_SUPABASE_URL,   // confirms project your server is using
-    embed: embed.data,
-    policy: policy.data,
-    versions: versions.data,
-    summaries: summaries?.data ?? null,
-    clauses: clauses?.data ?? null
+    embed: embed.data ?? null,
+    policy: policy.data ?? null,
+    versions: versions.data ?? null,
+    summaries: summaries.data ?? null,
+    clauses: clauses.data ?? null,
   });
 }
