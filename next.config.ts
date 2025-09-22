@@ -1,11 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // ✅ Skip ESLint during `next build` on Vercel
-  eslint: { ignoreDuringBuilds: true },
-
-  // ✅ Skip TypeScript type errors during build (the app will still run)
-  typescript: { ignoreBuildErrors: true },
+  eslint: {
+    // ✅ Do not block builds on ESLint errors in CI (Vercel)
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    // ✅ Do not block builds on TS type errors in CI (Vercel)
+    ignoreBuildErrors: true,
+  },
 };
 
 export default nextConfig;
