@@ -1,0 +1,52 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "legaleasy/terms-summary",
+    "version": "1.0.0",
+    "title": "Legal Easy Terms Summary",
+    "category": "widgets",
+    "icon": "shield-alt",
+    "description": "Display an AI-powered summary of legal terms and conditions.",
+    "keywords": ["legal", "terms", "summary", "ai", "analysis"],
+    "textdomain": "legaleasy-terms-summary",
+    "supports": {
+        "html": false,
+        "align": ["wide", "full"],
+        "spacing": {
+            "margin": true,
+            "padding": true
+        },
+        "color": {
+            "background": true,
+            "text": true
+        }
+    },
+    "attributes": {
+        "termsText": {
+            "type": "string",
+            "default": ""
+        },
+        "autoDetect": {
+            "type": "boolean",
+            "default": true
+        },
+        "showPrompt": {
+            "type": "boolean",
+            "default": true
+        },
+        "brandColor": {
+            "type": "string",
+            "default": "#00B3A6"
+        },
+        "brandIcon": {
+            "type": "string",
+            "default": "◆"
+        }
+    },
+    "providesContext": {
+        "legaleasy/termsText": "termsText"
+    },
+    "editorScript": "file:./index.js",
+    "editorStyle": "file:./editor.css",
+    "style": "file:./style.css"
+}

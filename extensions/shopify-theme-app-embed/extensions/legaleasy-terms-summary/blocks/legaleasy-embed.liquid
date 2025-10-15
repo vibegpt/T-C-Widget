@@ -1,0 +1,20 @@
+{% comment %}
+LegalEasy – App Embed (schema-only). Shopify injects the JS listed below.
+{% endcomment %}
+
+{% schema %}
+{
+  "name": "LegalEasy – Terms Summary",
+  "target": "body",
+  "javascript": "legaleasy-embed.js",
+  "enabled_on": {
+    "templates": ["*"]
+  },
+  "settings": [
+    { "type": "color", "id": "brand_color", "label": "Brand color", "default": "#00B3A6" },
+    { "type": "text", "id": "brand_icon", "label": "Icon (emoji or char)", "default": "◆" },
+    { "type": "text", "id": "terms_selectors", "label": "Custom Terms selectors (optional)", "default": "#terms, .terms, [data-terms], [aria-label*='terms' i]" },
+    { "type": "text", "id": "agree_selectors", "label": "Custom Agree selectors (optional)", "default": "button, [role='button'], input[type='submit'], [name*='agree' i], [id*='agree' i]" }
+  ]
+}
+{% endschema %}

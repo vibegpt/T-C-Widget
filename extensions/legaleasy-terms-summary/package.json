@@ -1,0 +1,38 @@
+{
+  "name": "legaleasy-terms-summary-wordpress",
+  "version": "1.0.0",
+  "description": "WordPress plugin for Legal Easy terms summary functionality",
+  "main": "legaleasy-terms-summary.php",
+  "scripts": {
+    "build": "wp-scripts build",
+    "start": "wp-scripts start",
+    "lint:css": "wp-scripts lint-style",
+    "lint:js": "wp-scripts lint-js",
+    "format": "wp-scripts format",
+    "pack-up": "wp-scripts pack-up"
+  },
+  "keywords": [
+    "wordpress",
+    "plugin",
+    "legal",
+    "terms",
+    "summary",
+    "ai",
+    "gutenberg"
+  ],
+  "author": "Legal Easy",
+  "license": "GPL-2.0-or-later",
+  "devDependencies": {
+    "@wordpress/scripts": "^27.0.0"
+  },
+  "dependencies": {
+    "@wordpress/blocks": "^12.0.0",
+    "@wordpress/block-editor": "^12.0.0",
+    "@wordpress/components": "^25.0.0",
+    "@wordpress/element": "^5.0.0",
+    "@wordpress/i18n": "^4.0.0"
+  },
+  "browserslist": [
+    "extends @wordpress/browserslist-config"
+  ]
+}

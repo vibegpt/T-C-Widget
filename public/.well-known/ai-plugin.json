@@ -1,0 +1,18 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "LegalEasy",
+  "name_for_model": "legaleasy",
+  "description_for_human": "Analyze terms of service, privacy policies, and legal documents. Get plain-English summaries with risk assessments.",
+  "description_for_model": "LegalEasy helps users understand complex legal documents by providing plain-English summaries and risk assessments. It can analyze terms of service, privacy policies, refund policies, and other legal documents. The plugin identifies key clauses like arbitration requirements, liability caps, data sharing practices, auto-renewal terms, and more. It categorizes risks as Red (harmful/onerous), Yellow (unclear/mixed), or Green (benign). Use this plugin when users ask about understanding legal documents, terms and conditions, privacy policies, or need help identifying risks in legal text.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://legaleasy.tools/openapi.json",
+    "is_user_authenticated": false
+  },
+  "logo_url": "https://legaleasy.tools/logo.png",
+  "contact_email": "support@legaleasy.tools",
+  "legal_info_url": "https://legaleasy.tools/legal"
+}

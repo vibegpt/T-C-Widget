@@ -1,0 +1,150 @@
+/* Legal Easy Terms Summary Block - Frontend Styles */
+
+.legaleasy-terms-summary-block {
+    margin: 20px 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.legaleasy-terms-content {
+    position: relative;
+}
+
+.legaleasy-terms-text {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 10px 0;
+    line-height: 1.6;
+    color: #333;
+}
+
+.legaleasy-terms-text h1,
+.legaleasy-terms-text h2,
+.legaleasy-terms-text h3,
+.legaleasy-terms-text h4,
+.legaleasy-terms-text h5,
+.legaleasy-terms-text h6 {
+    margin-top: 0;
+    margin-bottom: 16px;
+    color: #2c3e50;
+}
+
+.legaleasy-terms-text p {
+    margin-bottom: 12px;
+}
+
+.legaleasy-terms-text ul,
+.legaleasy-terms-text ol {
+    margin-bottom: 12px;
+    padding-left: 20px;
+}
+
+.legaleasy-terms-text li {
+    margin-bottom: 4px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .legaleasy-terms-summary-block {
+        margin: 15px 0;
+    }
+    
+    .legaleasy-terms-text {
+        padding: 15px;
+        font-size: 14px;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .legaleasy-terms-text {
+        background: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+    
+    .legaleasy-terms-text h1,
+    .legaleasy-terms-text h2,
+    .legaleasy-terms-text h3,
+    .legaleasy-terms-text h4,
+    .legaleasy-terms-text h5,
+    .legaleasy-terms-text h6 {
+        color: #f7fafc;
+    }
+}
+
+/* Alignment Support */
+.legaleasy-terms-summary-block.alignwide {
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.legaleasy-terms-summary-block.alignfull {
+    max-width: none;
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+}
+
+/* Custom Branding Support */
+.legaleasy-terms-summary-block[data-brand-color] {
+    --legaleasy-brand-color: attr(data-brand-color);
+}
+
+.legaleasy-terms-summary-block[data-brand-icon]::before {
+    content: attr(data-brand-icon);
+    display: inline-block;
+    margin-right: 8px;
+    color: var(--legaleasy-brand-color, #00B3A6);
+    font-size: 1.2em;
+}
+
+/* Loading State */
+.legaleasy-terms-summary-block.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.legaleasy-terms-summary-block.loading::after {
+    content: "Analyzing terms...";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-size: 14px;
+    z-index: 10;
+}
+
+/* Error State */
+.legaleasy-terms-summary-block.error {
+    border: 2px solid #e74c3c;
+    background: #fdf2f2;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.legaleasy-terms-summary-block.error::before {
+    content: "⚠️ ";
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+/* Success State */
+.legaleasy-terms-summary-block.success {
+    border: 2px solid #27ae60;
+    background: #f0f9f0;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.legaleasy-terms-summary-block.success::before {
+    content: "✅ ";
+    color: #27ae60;
+    font-weight: bold;
+}

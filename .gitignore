@@ -40,3 +40,31 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env.local
+
+# documentation (keep these local)
+*_ANALYSIS.md
+*_GUIDE.md
+*_README.md
+*_CHECKLIST.md
+*_ROADMAP.md
+*_STRATEGY.md
+*_ARCHITECTURE.md
+*_SUBMISSION.md
+*_SUMMARY.md
+*_SECTION.md
+POLICIES_SUMMARY.md
+HOMEPAGE_MARKET_ISSUES.md
+
+# build outputs
+/dist
+/legaleasy
+
+# test files
+test-*.sh
+test-*.html
+*-test.html
+loader-example.html
+
+# disabled/backup directories
+src/app-disabled/
+src/pages/

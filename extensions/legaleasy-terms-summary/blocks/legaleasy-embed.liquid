@@ -1,0 +1,36 @@
+<div {{ block.shopify_attributes }}
+  id="legaleasy-embed-root"
+  data-le-public-id="{{ block.settings.public_id }}"
+  data-le-brand-color="{{ block.settings.brand_color }}"
+  data-le-brand-icon="{{ block.settings.brand_icon }}">
+</div>
+
+{% schema %}
+{
+  "name": "LegalEasy – Terms Summary",
+  "target": "body",
+  "type": "app",
+  "javascript": "legaleasy-embed.js",
+  "enabled_on": { "templates": ["*"] },
+  "settings": [
+    {
+      "type": "text",
+      "id": "public_id",
+      "label": "LegalEasy Public ID",
+      "info": "Enter the public ID for the policy summary you want to display."
+    },
+    {
+      "type": "color",
+      "id": "brand_color",
+      "label": "Brand color",
+      "default": "#00B3A6"
+    },
+    {
+      "type": "text",
+      "id": "brand_icon",
+      "label": "Brand icon",
+      "default": "◆"
+    }
+  ]
+}
+{% endschema %}

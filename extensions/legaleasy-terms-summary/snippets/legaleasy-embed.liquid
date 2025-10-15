@@ -1,0 +1,22 @@
+<div {{ block.shopify_attributes }}
+     id="legaleasy-embed-root"
+     data-le-brand-color="{{ block.settings.brand_color }}"
+     data-le-brand-icon="{{ block.settings.brand_icon }}"
+     data-le-terms-selectors="{{ block.settings.terms_selectors }}"
+     data-le-agree-selectors="{{ block.settings.agree_selectors }}">
+</div>
+
+{% schema %}
+{
+  "name": "LegalEasy – Terms Summary",
+  "target": "body",
+  "settings": [
+    { "type": "color", "id": "brand_color", "label": "Brand color", "default": "#00B3A6" },
+    { "type": "text", "id": "brand_icon", "label": "Brand icon", "default": "◆" },
+    { "type": "text", "id": "terms_selectors", "label": "Terms selectors", "default": "#terms, .terms, [data-terms], [aria-label*='terms' i]" },
+    { "type": "text", "id": "agree_selectors", "label": "Agree button selectors", "default": "button[name*='agree' i], [id*='agree' i], [role='button'], input[type='submit']" }
+  ],
+  "javascript": "legaleasy-embed.js",
+  "enabled_on": { "templates": ["*"] }
+}
+{% endschema %}
