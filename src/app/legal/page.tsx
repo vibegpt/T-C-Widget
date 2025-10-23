@@ -1,7 +1,14 @@
+import Navigation from '@/components/navigation';
+import Footer from '@/components/footer';
+
 export default function LegalPage() {
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <h1 className="text-4xl font-bold mb-8">Legal Information</h1>
+    <div className="min-h-screen flex flex-col">
+      <Navigation />
+
+      <main className="flex-1 py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h1 className="text-4xl font-bold text-foreground mb-8">Legal Information</h1>
 
       <div className="space-y-12">
         {/* Privacy Policy */}
@@ -65,7 +72,7 @@ export default function LegalPage() {
               <li>Request data portability</li>
             </ul>
             <p className="mb-4">
-              Contact us at <a href="mailto:privacy@legaleasy.app" className="text-blue-600 hover:underline">privacy@legaleasy.app</a> to exercise these rights.
+              Contact us at <a href="mailto:privacy@legaleasy.tools" className="text-blue-600 hover:underline">privacy@legaleasy.tools</a> to exercise these rights.
             </p>
 
             <h3 className="text-xl font-semibold mt-6 mb-3">6. Data Retention</h3>
@@ -80,7 +87,7 @@ export default function LegalPage() {
 
             <h3 className="text-xl font-semibold mt-6 mb-3">7. Contact</h3>
             <p className="mb-4">
-              For privacy questions or requests: <a href="mailto:privacy@legaleasy.app" className="text-blue-600 hover:underline">privacy@legaleasy.app</a>
+              For privacy questions or requests: <a href="mailto:privacy@legaleasy.tools" className="text-blue-600 hover:underline">privacy@legaleasy.tools</a>
             </p>
           </div>
         </section>
@@ -159,7 +166,7 @@ export default function LegalPage() {
 
             <h3 className="text-xl font-semibold mt-6 mb-3">11. Contact</h3>
             <p className="mb-4">
-              For questions about these terms: <a href="mailto:legal@legaleasy.app" className="text-blue-600 hover:underline">legal@legaleasy.app</a>
+              For questions about these terms: <a href="mailto:legal@legaleasy.tools" className="text-blue-600 hover:underline">legal@legaleasy.tools</a>
             </p>
           </div>
         </section>
@@ -172,27 +179,18 @@ export default function LegalPage() {
               Need help? We're here for you:
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2">
-              <li><strong>Email:</strong> <a href="mailto:support@legaleasy.app" className="text-blue-600 hover:underline">support@legaleasy.app</a></li>
+              <li><strong>Email:</strong> <a href="mailto:support@legaleasy.tools" className="text-blue-600 hover:underline">support@legaleasy.tools</a></li>
               <li><strong>Response Time:</strong> Within 24 hours (business days)</li>
-              <li><strong>Documentation:</strong> <a href="https://docs.legaleasy.app" className="text-blue-600 hover:underline">docs.legaleasy.app</a></li>
+              <li><strong>Documentation:</strong> <a href="https://legaleasy.tools" className="text-blue-600 hover:underline">legaleasy.tools</a></li>
             </ul>
           </div>
         </section>
       </div>
 
-      {/* Footer */}
-      <div className="mt-12 pt-8 border-t text-center text-gray-600">
-        <p>LegalEasy © {new Date().getFullYear()}. All rights reserved.</p>
-        <p className="mt-2">
-          <a href="/" className="text-blue-600 hover:underline">Home</a>
-          {" · "}
-          <a href="/legal#privacy" className="text-blue-600 hover:underline">Privacy</a>
-          {" · "}
-          <a href="/legal#terms" className="text-blue-600 hover:underline">Terms</a>
-          {" · "}
-          <a href="/legal#support" className="text-blue-600 hover:underline">Support</a>
-        </p>
-      </div>
+        </div>
+      </main>
+
+      <Footer />
     </div>
   );
 }
