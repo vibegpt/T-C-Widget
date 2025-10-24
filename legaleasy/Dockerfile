@@ -1,5 +1,6 @@
 FROM node:18-alpine
 
+# Force rebuild - updated 2025-10-24
 ARG SHOPIFY_API_KEY
 ENV SHOPIFY_API_KEY=$SHOPIFY_API_KEY
 EXPOSE 8081
