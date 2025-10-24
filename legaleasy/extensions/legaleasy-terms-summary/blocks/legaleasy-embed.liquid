@@ -1,0 +1,26 @@
+{% comment %}
+LegalEasy – Theme App Embed Block (Shopify)
+This injects a small loader script site-wide. Toggle it in: Theme Editor → App embeds.
+{% endcomment %}
+
+<script
+  defer
+  src="{{ 'legaleasy-embed.js' | asset_url }}"
+  data-color="{{ block.settings.brand_color }}"
+  data-icon="{{ block.settings.brand_icon }}"
+  data-terms="{{ block.settings.terms_selectors }}"
+  data-agree="{{ block.settings.agree_selectors }}"
+></script>
+
+{% schema %}
+{
+  "name": "LegalEasy – Terms Summary",
+  "target": "body",
+  "settings": [
+    { "type": "color", "id": "brand_color", "label": "Brand color", "default": "#00B3A6" },
+    { "type": "text", "id": "brand_icon", "label": "Icon (emoji or char)", "default": "◆" },
+    { "type": "text", "id": "terms_selectors", "label": "Custom Terms selectors (optional)", "default": "#terms, .terms, [data-terms], [aria-label*='terms' i]" },
+    { "type": "text", "id": "agree_selectors", "label": "Custom Agree selectors (optional)", "default": "button, [role='button'], input[type='submit'], [name*='agree' i], [id*='agree' i]" }
+  ]
+}
+{% endschema %}

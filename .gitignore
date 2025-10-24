@@ -57,7 +57,7 @@ HOMEPAGE_MARKET_ISSUES.md
 
 # build outputs
 /dist
-/legaleasy
+# /legaleasy - Now included for Shopify app deployment
 
 # test files
 test-*.sh

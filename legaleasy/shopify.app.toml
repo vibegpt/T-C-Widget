@@ -1,0 +1,24 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "d74a3872b4b26c95ea998fc4f403e57d"
+name = "legaleasy"
+handle = "legaleasy"
+application_url = "https://actors-its-planner-retro.trycloudflare.com"
+embedded = true
+
+[build]
+include_config_on_deploy = true
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2025-07"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_products"
+
+[auth]
+redirect_urls = ["https://actors-its-planner-retro.trycloudflare.com/auth/callback", "https://actors-its-planner-retro.trycloudflare.com/auth/shopify/callback", "https://actors-its-planner-retro.trycloudflare.com/api/auth/callback"]
+
+[pos]
+embedded = false
