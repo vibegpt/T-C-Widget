@@ -2,9 +2,9 @@
 
 client_id = "92e0255bdd192b7db878b91a82e4e383"
 name = "Legal Easy"
-handle = "legal-easy"
 application_url = "https://t-c-widget-production.up.railway.app"
 embedded = true
+handle = "legal-easy"
 
 [build]
 automatically_update_urls_on_dev = true
@@ -12,12 +12,21 @@ automatically_update_urls_on_dev = true
 [webhooks]
 api_version = "2025-07"
 
+[webhooks.privacy_compliance]
+customer_data_request_url = "https://t-c-widget-production.up.railway.app/api/webhooks"
+customer_deletion_url = "https://t-c-widget-production.up.railway.app/api/webhooks"
+shop_deletion_url = "https://t-c-widget-production.up.railway.app/api/webhooks"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "write_products"
 
 [auth]
-redirect_urls = ["https://t-c-widget-production.up.railway.app/auth/callback", "https://t-c-widget-production.up.railway.app/auth/shopify/callback", "https://t-c-widget-production.up.railway.app/api/auth/callback"]
+redirect_urls = [
+  "https://t-c-widget-production.up.railway.app/auth/callback",
+  "https://t-c-widget-production.up.railway.app/auth/shopify/callback",
+  "https://t-c-widget-production.up.railway.app/api/auth/callback"
+]
 
 [pos]
 embedded = false
