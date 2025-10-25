@@ -3,7 +3,7 @@
 client_id = "d74a3872b4b26c95ea998fc4f403e57d"
 name = "legaleasy"
 handle = "legaleasy"
-application_url = "https://actors-its-planner-retro.trycloudflare.com"
+application_url = "https://t-c-widget-production.up.railway.app"
 embedded = true
 
 [build]
@@ -18,7 +18,7 @@ api_version = "2025-07"
 scopes = "write_products"
 
 [auth]
-redirect_urls = ["https://actors-its-planner-retro.trycloudflare.com/auth/callback", "https://actors-its-planner-retro.trycloudflare.com/auth/shopify/callback", "https://actors-its-planner-retro.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://t-c-widget-production.up.railway.app/auth/callback", "https://t-c-widget-production.up.railway.app/auth/shopify/callback", "https://t-c-widget-production.up.railway.app/api/auth/callback"]
 
 [pos]
 embedded = false
