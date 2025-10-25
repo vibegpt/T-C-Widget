@@ -73,14 +73,24 @@ app.use(shopify.cspHeaders());
 app.use(serveStatic(STATIC_PATH, { index: false }));
 
 app.use("/*", shopify.ensureInstalledOnShop(), async (_req, res, _next) => {
-  return res
-    .status(200)
-    .set("Content-Type", "text/html")
-    .send(
-      readFileSync(join(STATIC_PATH, "index.html"))
-        .toString()
-        .replace("%VITE_SHOPIFY_API_KEY%", process.env.SHOPIFY_API_KEY || "")
-    );
+  try {
+    const indexPath = join(STATIC_PATH, "index.html");
+    console.log(`Attempting to read: ${indexPath}`);
+    const html = readFileSync(indexPath)
+      .toString()
+      .replace("%VITE_SHOPIFY_API_KEY%", process.env.SHOPIFY_API_KEY || "");
+    return res
+      .status(200)
+      .set("Content-Type", "text/html")
+      .send(html);
+  } catch (error) {
+    console.error("Error reading index.html:", error);
+    return res.status(500).send("Error loading app");
+  }
 });
 
-app.listen(PORT);
+app.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log(`Static path: ${STATIC_PATH}`);
+});
