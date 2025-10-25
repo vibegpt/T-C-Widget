@@ -20,6 +20,11 @@ const STATIC_PATH =
 
 const app = express();
 
+// Health check endpoint for Railway
+app.get("/health", (_req, res) => {
+  res.status(200).send("OK");
+});
+
 // Set up Shopify authentication and webhook handling
 app.get(shopify.config.auth.path, shopify.auth.begin());
 app.get(
