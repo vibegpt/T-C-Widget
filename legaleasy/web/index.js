@@ -20,6 +20,15 @@ const STATIC_PATH =
 
 const app = express();
 
+// Trust Railway's proxy for proper HTTPS/OAuth handling
+app.set('trust proxy', 1);
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
+
 // Health check endpoint for Railway
 app.get("/health", (_req, res) => {
   res.status(200).send("OK");
@@ -94,8 +103,8 @@ app.use("/*", shopify.ensureInstalledOnShop(), async (_req, res, _next) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server listening on port ${PORT} (0.0.0.0)`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
   console.log(`Static path: ${STATIC_PATH}`);
 });
