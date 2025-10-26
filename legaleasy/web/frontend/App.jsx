@@ -1,6 +1,8 @@
 import { BrowserRouter } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { NavMenu } from "@shopify/app-bridge-react";
+import { useEffect } from "react";
+import { useAuthenticatedFetch } from "./hooks";
 import Routes from "./Routes";
 
 import { QueryProvider, PolarisProvider } from "./components";
@@ -12,6 +14,22 @@ export default function App() {
     eager: true,
   });
   const { t } = useTranslation();
+  const fetch = useAuthenticatedFetch();
+
+  // Make an authenticated API call on mount to verify session tokens
+  useEffect(() => {
+    const pingBackend = async () => {
+      try {
+        console.log("Making authenticated ping request...");
+        const response = await fetch("/api/ping");
+        const data = await response.json();
+        console.log("Ping response:", data);
+      } catch (error) {
+        console.error("Ping failed:", error);
+      }
+    };
+    pingBackend();
+  }, [fetch]);
 
   return (
     <PolarisProvider>
