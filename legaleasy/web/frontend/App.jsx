@@ -1,7 +1,6 @@
 import { BrowserRouter } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { NavMenu, useAppBridge } from "@shopify/app-bridge-react";
-import { getSessionToken } from "@shopify/app-bridge-utils";
 import { useEffect } from "react";
 import Routes from "./Routes";
 
@@ -14,14 +13,14 @@ export default function App() {
     eager: true,
   });
   const { t } = useTranslation();
-  const app = useAppBridge();
+  const shopify = useAppBridge();
 
   // Make an authenticated API call on mount to verify session tokens
   useEffect(() => {
     const pingBackend = async () => {
       try {
         console.log("Making authenticated ping request...");
-        const token = await getSessionToken(app);
+        const token = await shopify.idToken();
         const response = await fetch("/api/ping", {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -34,7 +33,7 @@ export default function App() {
       }
     };
     pingBackend();
-  }, [app]);
+  }, [shopify]);
 
   return (
     <PolarisProvider>
