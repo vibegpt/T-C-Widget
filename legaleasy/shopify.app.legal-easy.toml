@@ -23,10 +23,13 @@ scopes = "write_products"
 
 [auth]
 redirect_urls = [
-  "https://t-c-widget-production.up.railway.app/auth/callback",
-  "https://t-c-widget-production.up.railway.app/auth/shopify/callback",
   "https://t-c-widget-production.up.railway.app/api/auth/callback"
 ]
+
+[app_proxy]
+url = "https://t-c-widget-production.up.railway.app"
+subpath = "apps/legal-easy"
+prefix = "apps"
 
 [pos]
 embedded = false

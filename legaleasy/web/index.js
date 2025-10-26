@@ -49,6 +49,27 @@ app.post(
 // If you are adding routes outside of the /api path, remember to
 // also add a proxy rule for them in web/frontend/vite.config.js
 
+// App Proxy route for storefront widget configuration (no auth required)
+app.get("/apps/legal-easy/config", async (req, res) => {
+  const shop = req.query.shop;
+
+  if (!shop) {
+    return res.status(400).json({ error: "Shop parameter required" });
+  }
+
+  // TODO: Fetch merchant config from database
+  // For now, return default config
+  const config = {
+    enabled: true,
+    brandColor: "#00B3A6",
+    brandIcon: "◆",
+    vercelApiUrl: "https://your-vercel-domain.vercel.app"
+  };
+
+  console.log(`Config request for shop: ${shop}`);
+  res.json(config);
+});
+
 app.use("/api/*", shopify.validateAuthenticatedSession());
 
 app.use(express.json());
