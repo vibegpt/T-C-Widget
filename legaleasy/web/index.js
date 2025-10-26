@@ -74,7 +74,7 @@ app.get("/apps/legaleasy/config", async (req, res) => {
       enabled: settings.enabled,
       brandColor: settings.brand_color,
       brandIcon: settings.brand_icon,
-      vercelApiUrl: settings.vercel_api_url || "https://your-vercel-domain.vercel.app"
+      vercelApiUrl: settings.vercel_api_url || "https://legaleasy.tools"
     };
 
     console.log(`Config request for shop: ${shop}`);
