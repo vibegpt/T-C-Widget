@@ -7,6 +7,7 @@ import serveStatic from "serve-static";
 import shopify from "./shopify.js";
 import productCreator from "./product-creator.js";
 import PrivacyWebhookHandlers from "./privacy.js";
+import { getSettings, saveSettings } from "./db.js";
 
 const PORT = parseInt(
   process.env.BACKEND_PORT || process.env.PORT || "3000",
@@ -57,17 +58,23 @@ app.get("/apps/legaleasy/config", async (req, res) => {
     return res.status(400).json({ error: "Shop parameter required" });
   }
 
-  // TODO: Fetch merchant config from database
-  // For now, return default config
-  const config = {
-    enabled: true,
-    brandColor: "#00B3A6",
-    brandIcon: "◆",
-    vercelApiUrl: "https://your-vercel-domain.vercel.app"
-  };
+  try {
+    // Fetch merchant config from database
+    const settings = await getSettings(shop);
 
-  console.log(`Config request for shop: ${shop}`);
-  res.json(config);
+    const config = {
+      enabled: settings.enabled,
+      brandColor: settings.brand_color,
+      brandIcon: settings.brand_icon,
+      vercelApiUrl: settings.vercel_api_url || "https://your-vercel-domain.vercel.app"
+    };
+
+    console.log(`Config request for shop: ${shop}`);
+    res.json(config);
+  } catch (error) {
+    console.error("Error fetching config:", error);
+    res.status(500).json({ error: "Failed to fetch configuration" });
+  }
 });
 
 app.use("/api/*", shopify.validateAuthenticatedSession());
@@ -78,6 +85,38 @@ app.use(express.json());
 app.get("/api/ping", async (_req, res) => {
   console.log("Ping request received with session token");
   res.status(200).json({ success: true, message: "Authenticated" });
+});
+
+// Get merchant settings
+app.get("/api/settings", async (_req, res) => {
+  try {
+    const session = res.locals.shopify.session;
+    const settings = await getSettings(session.shop);
+    res.status(200).json(settings);
+  } catch (error) {
+    console.error("Error fetching settings:", error);
+    res.status(500).json({ error: "Failed to fetch settings" });
+  }
+});
+
+// Save merchant settings
+app.post("/api/settings", async (req, res) => {
+  try {
+    const session = res.locals.shopify.session;
+    const { enabled, brandColor, brandIcon, vercelApiUrl } = req.body;
+
+    const settings = await saveSettings(session.shop, {
+      enabled: enabled !== undefined ? enabled : true,
+      brand_color: brandColor || "#00B3A6",
+      brand_icon: brandIcon || "◆",
+      vercel_api_url: vercelApiUrl || null,
+    });
+
+    res.status(200).json(settings);
+  } catch (error) {
+    console.error("Error saving settings:", error);
+    res.status(500).json({ error: "Failed to save settings" });
+  }
 });
 
 app.get("/api/products/count", async (_req, res) => {
