@@ -28,7 +28,7 @@ redirect_urls = [
 
 [app_proxy]
 url = "https://t-c-widget-production.up.railway.app"
-subpath = "apps/legal-easy"
+subpath = "legaleasy"
 prefix = "apps"
 
 [pos]

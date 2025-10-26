@@ -19,7 +19,7 @@
   // Get merchant-specific configuration from your Railway backend
   async function getMerchantConfig() {
     try {
-      const response = await fetch(`https://t-c-widget-production.up.railway.app/apps/legal-easy/config?shop=${config.shopDomain}`);
+      const response = await fetch(`https://t-c-widget-production.up.railway.app/apps/legaleasy/config?shop=${config.shopDomain}`);
       if (!response.ok) {
         console.warn('[LegalEasy] Could not fetch merchant config, using defaults');
         return config;

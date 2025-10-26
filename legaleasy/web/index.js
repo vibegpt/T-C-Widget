@@ -50,7 +50,7 @@ app.post(
 // also add a proxy rule for them in web/frontend/vite.config.js
 
 // App Proxy route for storefront widget configuration (no auth required)
-app.get("/apps/legal-easy/config", async (req, res) => {
+app.get("/apps/legaleasy/config", async (req, res) => {
   const shop = req.query.shop;
 
   if (!shop) {
