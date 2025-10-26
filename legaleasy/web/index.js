@@ -8,6 +8,7 @@ import shopify from "./shopify.js";
 import productCreator from "./product-creator.js";
 import PrivacyWebhookHandlers from "./privacy.js";
 import { getSettings, saveSettings } from "./db.js";
+import { verifyProxySignature } from "./verify-proxy.js";
 
 const PORT = parseInt(
   process.env.BACKEND_PORT || process.env.PORT || "3000",
@@ -50,12 +51,19 @@ app.post(
 // If you are adding routes outside of the /api path, remember to
 // also add a proxy rule for them in web/frontend/vite.config.js
 
-// App Proxy route for storefront widget configuration (no auth required)
+// App Proxy route for storefront widget configuration (authenticated via signature)
 app.get("/apps/legaleasy/config", async (req, res) => {
   const shop = req.query.shop;
 
   if (!shop) {
     return res.status(400).json({ error: "Shop parameter required" });
+  }
+
+  // Verify the App Proxy signature
+  const clientSecret = process.env.SHOPIFY_API_SECRET;
+  if (!verifyProxySignature(req.query, clientSecret)) {
+    console.warn(`Invalid signature for shop: ${shop}`);
+    return res.status(401).json({ error: "Invalid signature" });
   }
 
   try {
