@@ -34,6 +34,11 @@ export default function SettingsPage() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
+  // Summary scanning state
+  const [summaries, setSummaries] = useState([]);
+  const [isScanning, setIsScanning] = useState({});
+  const [scanResults, setScanResults] = useState({});
+
   // Convert hex to HSB for ColorPicker
   const hexToHsb = useCallback((hex) => {
     // Remove # if present
@@ -103,24 +108,38 @@ export default function SettingsPage() {
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
   }, []);
 
-  // Load settings on mount
+  // Load settings and summaries on mount
   useEffect(() => {
     async function loadSettings() {
       try {
         const token = await shopify.idToken();
-        const response = await fetch("/api/settings", {
+
+        // Load widget settings
+        const settingsResponse = await fetch("/api/settings", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
-        if (response.ok) {
-          const data = await response.json();
+        if (settingsResponse.ok) {
+          const data = await settingsResponse.json();
           setEnabled(data.enabled);
           setBrandIcon(data.brand_icon);
           if (data.brand_color) {
             setBrandColor(hexToHsb(data.brand_color));
           }
+        }
+
+        // Load existing summaries
+        const summariesResponse = await fetch("/api/summaries", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (summariesResponse.ok) {
+          const data = await summariesResponse.json();
+          setSummaries(data.summaries || []);
         }
       } catch (error) {
         console.error("Error loading settings:", error);
@@ -165,6 +184,54 @@ export default function SettingsPage() {
       setIsSaving(false);
     }
   }, [shopify, enabled, brandColor, brandIcon, hsbToHex]);
+
+  const handleScanPolicy = useCallback(async (policyType) => {
+    setIsScanning((prev) => ({ ...prev, [policyType]: true }));
+    setScanResults((prev) => ({ ...prev, [policyType]: null }));
+
+    try {
+      const token = await shopify.idToken();
+      const response = await fetch("/api/scan-policy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ policyType }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || "Failed to scan policy");
+      }
+
+      setScanResults((prev) => ({
+        ...prev,
+        [policyType]: { success: true, summary: data.summary },
+      }));
+
+      // Reload summaries
+      const summariesResponse = await fetch("/api/summaries", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (summariesResponse.ok) {
+        const summariesData = await summariesResponse.json();
+        setSummaries(summariesData.summaries || []);
+      }
+    } catch (error) {
+      console.error(`Error scanning ${policyType}:`, error);
+      setScanResults((prev) => ({
+        ...prev,
+        [policyType]: { success: false, error: error.message },
+      }));
+    } finally {
+      setIsScanning((prev) => ({ ...prev, [policyType]: false }));
+    }
+  }, [shopify]);
 
   if (isLoading) {
     return (
@@ -232,6 +299,63 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </FormLayout>
+            </BlockStack>
+          </Card>
+
+          <Card>
+            <BlockStack gap="400">
+              <Text variant="headingMd" as="h2">
+                Policy Summaries
+              </Text>
+              <Text variant="bodyMd" as="p" tone="subdued">
+                Scan your store's policies to generate summaries that will be shown to customers during checkout.
+              </Text>
+
+              {["terms_and_conditions", "privacy_policy", "refund_policy"].map((policyType) => {
+                const summary = summaries.find((s) => s.policy_type === policyType);
+                const result = scanResults[policyType];
+                const scanning = isScanning[policyType];
+
+                return (
+                  <div key={policyType} style={{ padding: '16px', background: '#f9fafb', borderRadius: '8px' }}>
+                    <BlockStack gap="200">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text variant="bodyMd" as="p" fontWeight="semibold">
+                          {policyType === 'terms_and_conditions' && 'Terms & Conditions'}
+                          {policyType === 'privacy_policy' && 'Privacy Policy'}
+                          {policyType === 'refund_policy' && 'Refund Policy'}
+                        </Text>
+                        <Button
+                          size="slim"
+                          onClick={() => handleScanPolicy(policyType)}
+                          loading={scanning}
+                          disabled={scanning}
+                        >
+                          {summary ? 'Re-scan' : 'Scan Now'}
+                        </Button>
+                      </div>
+
+                      {summary && (
+                        <Text variant="bodySm" as="p" tone="success">
+                          ✓ Last scanned: {new Date(summary.last_scanned_at).toLocaleDateString()}
+                        </Text>
+                      )}
+
+                      {result?.success && (
+                        <Banner status="success" onDismiss={() => setScanResults((prev) => ({ ...prev, [policyType]: null }))}>
+                          Policy scanned successfully!
+                        </Banner>
+                      )}
+
+                      {result?.error && (
+                        <Banner status="critical" onDismiss={() => setScanResults((prev) => ({ ...prev, [policyType]: null }))}>
+                          {result.error}
+                        </Banner>
+                      )}
+                    </BlockStack>
+                  </div>
+                );
+              })}
             </BlockStack>
           </Card>
 
