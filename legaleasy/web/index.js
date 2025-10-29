@@ -53,6 +53,11 @@ app.post(
 
 // App Proxy route for storefront widget configuration (authenticated via signature)
 app.get("/apps/legaleasy/config", async (req, res) => {
+  // Set CORS headers for App Proxy requests from Shopify storefronts
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
   const shop = req.query.shop;
 
   if (!shop) {
