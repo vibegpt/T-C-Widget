@@ -9,7 +9,6 @@ import {
   Button,
   Banner,
   Text,
-  BlockStack,
   Spinner,
 } from "@shopify/polaris";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
@@ -267,7 +266,7 @@ export default function SettingsPage() {
           )}
 
           <Card>
-            <BlockStack gap="400">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <Text variant="headingMd" as="h2">
                 Widget Appearance
               </Text>
@@ -299,11 +298,11 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </FormLayout>
-            </BlockStack>
+            </div>
           </Card>
 
           <Card>
-            <BlockStack gap="400">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <Text variant="headingMd" as="h2">
                 Policy Summaries
               </Text>
@@ -318,7 +317,7 @@ export default function SettingsPage() {
 
                 return (
                   <div key={policyType} style={{ padding: '16px', background: '#f9fafb', borderRadius: '8px' }}>
-                    <BlockStack gap="200">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Text variant="bodyMd" as="p" fontWeight="semibold">
                           {policyType === 'terms_and_conditions' && 'Terms & Conditions'}
@@ -352,19 +351,19 @@ export default function SettingsPage() {
                           {result.error}
                         </Banner>
                       )}
-                    </BlockStack>
+                    </div>
                   </div>
                 );
               })}
-            </BlockStack>
+            </div>
           </Card>
 
           <Card>
-            <BlockStack gap="400">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <Text variant="headingMd" as="h2">
                 Installation Instructions
               </Text>
-              <BlockStack gap="200">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <Text variant="bodyMd" as="p">
                   1. Go to your Shopify admin
                 </Text>
@@ -383,8 +382,8 @@ export default function SettingsPage() {
                 <Text variant="bodyMd" as="p">
                   6. Save your changes
                 </Text>
-              </BlockStack>
-            </BlockStack>
+              </div>
+            </div>
           </Card>
 
           <div style={{ marginTop: '16px' }}>
