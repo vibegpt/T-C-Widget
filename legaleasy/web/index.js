@@ -7,8 +7,9 @@ import serveStatic from "serve-static";
 import shopify from "./shopify.js";
 import productCreator from "./product-creator.js";
 import PrivacyWebhookHandlers from "./privacy.js";
-import { getSettings, saveSettings } from "./db.js";
+import { getSettings, saveSettings, getSummaries, hasSummaries, saveSummary, getSummary } from "./db.js";
 import { verifyProxySignature } from "./verify-proxy.js";
+import { parseTerms, generateSummary } from "./parse-terms.js";
 
 const PORT = parseInt(
   process.env.BACKEND_PORT || process.env.PORT || "3000",
@@ -90,6 +91,69 @@ app.get("/apps/legaleasy/config", async (req, res) => {
   }
 });
 
+// App Proxy route for checking if summaries exist (for checkout detection)
+app.get("/apps/legaleasy/summaries/status", async (req, res) => {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  const shop = req.query.shop;
+
+  if (!shop) {
+    return res.status(400).json({ error: "Shop parameter required" });
+  }
+
+  // Verify the App Proxy signature
+  const clientSecret = process.env.SHOPIFY_API_SECRET;
+  if (!verifyProxySignature(req.query, clientSecret)) {
+    console.warn(`Invalid signature for shop: ${shop}`);
+    return res.status(401).json({ error: "Invalid signature" });
+  }
+
+  try {
+    const has = await hasSummaries(shop);
+    const summaries = has ? await getSummaries(shop) : [];
+
+    res.json({
+      hasSummaries: has,
+      availableTypes: summaries.map(s => s.policy_type)
+    });
+  } catch (error) {
+    console.error("Error checking summaries:", error);
+    res.status(500).json({ error: "Failed to check summaries" });
+  }
+});
+
+// App Proxy route for fetching summaries (for checkout display)
+app.get("/apps/legaleasy/summaries", async (req, res) => {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  const shop = req.query.shop;
+
+  if (!shop) {
+    return res.status(400).json({ error: "Shop parameter required" });
+  }
+
+  // Verify the App Proxy signature
+  const clientSecret = process.env.SHOPIFY_API_SECRET;
+  if (!verifyProxySignature(req.query, clientSecret)) {
+    console.warn(`Invalid signature for shop: ${shop}`);
+    return res.status(401).json({ error: "Invalid signature" });
+  }
+
+  try {
+    const summaries = await getSummaries(shop);
+    res.json({ summaries });
+  } catch (error) {
+    console.error("Error fetching summaries:", error);
+    res.status(500).json({ error: "Failed to fetch summaries" });
+  }
+});
+
 app.use("/api/*", shopify.validateAuthenticatedSession());
 
 app.use(express.json());
@@ -129,6 +193,82 @@ app.post("/api/settings", async (req, res) => {
   } catch (error) {
     console.error("Error saving settings:", error);
     res.status(500).json({ error: "Failed to save settings" });
+  }
+});
+
+// Get all summaries for the merchant
+app.get("/api/summaries", async (_req, res) => {
+  try {
+    const session = res.locals.shopify.session;
+    const summaries = await getSummaries(session.shop);
+    res.status(200).json({ summaries });
+  } catch (error) {
+    console.error("Error fetching summaries:", error);
+    res.status(500).json({ error: "Failed to fetch summaries" });
+  }
+});
+
+// Scan a policy page and generate summary
+app.post("/api/scan-policy", async (req, res) => {
+  try {
+    const session = res.locals.shopify.session;
+    const { policyType } = req.body; // 'terms_and_conditions', 'privacy_policy', 'refund_policy'
+
+    if (!policyType) {
+      return res.status(400).json({ error: "Policy type required" });
+    }
+
+    // Fetch the policy URL from Shopify Admin API
+    const client = new shopify.api.clients.Rest({ session });
+    const policies = await client.get({ path: 'policies' });
+
+    const policyMap = {
+      'terms_and_conditions': policies.body.policies.find(p => p.handle === 'terms-of-service'),
+      'privacy_policy': policies.body.policies.find(p => p.handle === 'privacy-policy'),
+      'refund_policy': policies.body.policies.find(p => p.handle === 'refund-policy'),
+    };
+
+    const policy = policyMap[policyType];
+
+    if (!policy || !policy.body) {
+      return res.status(404).json({
+        error: "Policy not found",
+        message: `No ${policyType.replace('_', ' ')} found in your store`
+      });
+    }
+
+    // Parse the policy text
+    const parsed = parseTerms(policy.body);
+    const summaryText = generateSummary(parsed);
+
+    // Store in database
+    await saveSummary(session.shop, policyType, {
+      summary_text: summaryText,
+      original_url: policy.url,
+      status: 'completed',
+    });
+
+    res.status(200).json({
+      success: true,
+      summary: summaryText,
+      policyType,
+    });
+  } catch (error) {
+    console.error("Error scanning policy:", error);
+
+    // Store error in database
+    const session = res.locals.shopify.session;
+    const { policyType } = req.body;
+    if (policyType) {
+      await saveSummary(session.shop, policyType, {
+        summary_text: null,
+        original_url: null,
+        status: 'failed',
+        error_message: error.message,
+      });
+    }
+
+    res.status(500).json({ error: "Failed to scan policy", details: error.message });
   }
 });
 
