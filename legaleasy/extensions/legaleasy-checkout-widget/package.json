@@ -1,0 +1,17 @@
+{
+  "name": "legaleasy-checkout-widget",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "shopify app build"
+  },
+  "dependencies": {
+    "@shopify/ui-extensions-react": "^2024.10.0",
+    "react": "^18.3.1",
+    "react-reconciler": "^0.29.2"
+  },
+  "devDependencies": {
+    "@shopify/cli": "^3.84.2"
+  }
+}

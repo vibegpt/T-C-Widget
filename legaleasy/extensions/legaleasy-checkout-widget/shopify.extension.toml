@@ -1,0 +1,14 @@
+# Learn more: https://shopify.dev/docs/api/checkout-ui-extensions
+
+api_version = "2025-01"
+name = "LegalEasy Checkout Widget"
+uid = "47de2541-adfc-7121-5c6a-5cf8f2a718f20fe226c6"
+type = "ui_extension"
+
+[[targeting]]
+target = "purchase.checkout.block.render"
+module = "./src/Checkout.jsx"
+
+[build]
+command = ""
+watch = []

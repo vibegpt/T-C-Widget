@@ -1,0 +1,10 @@
+# Learn more: https://shopify.dev/docs/api/shopify-app-toml#extension-type
+
+uid = "2f4c01c6-37cc-e85f-62d3-17d16830fd7443929d6d"
+
+type = "theme"
+name = "LegalEasy Terms Summary"
+
+[build]
+command = ""
+watch = []

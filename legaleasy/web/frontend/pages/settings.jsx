@@ -232,6 +232,55 @@ export default function SettingsPage() {
     }
   }, [shopify]);
 
+  const handleScanAll = useCallback(async () => {
+    setIsScanning({ terms_and_conditions: true, privacy_policy: true, refund_policy: true });
+    setScanResults({});
+
+    try {
+      const token = await shopify.idToken();
+      const response = await fetch("/api/scan-all-policies", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to scan policies");
+      }
+
+      // Show success for all scanned policies
+      const newResults = {};
+      data.results.forEach((result) => {
+        newResults[result.policyType] = {
+          success: result.success,
+          error: result.reason || null,
+        };
+      });
+      setScanResults(newResults);
+
+      // Reload summaries
+      const summariesResponse = await fetch("/api/summaries", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (summariesResponse.ok) {
+        const summariesData = await summariesResponse.json();
+        setSummaries(summariesData.summaries || []);
+      }
+    } catch (error) {
+      console.error("Error scanning all policies:", error);
+      setSaveError(error.message);
+    } finally {
+      setIsScanning({});
+    }
+  }, [shopify]);
+
   if (isLoading) {
     return (
       <Page>
@@ -303,12 +352,23 @@ export default function SettingsPage() {
 
           <Card>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <Text variant="headingMd" as="h2">
-                Policy Summaries
-              </Text>
-              <Text variant="bodyMd" as="p" tone="subdued">
-                Scan your store's policies to generate summaries that will be shown to customers during checkout.
-              </Text>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <Text variant="headingMd" as="h2">
+                    Policy Summaries
+                  </Text>
+                  <Text variant="bodyMd" as="p" tone="subdued">
+                    Scan your store's policies to generate summaries that will be shown to customers during checkout.
+                  </Text>
+                </div>
+                <Button
+                  onClick={handleScanAll}
+                  loading={Object.values(isScanning).some(Boolean)}
+                  disabled={Object.values(isScanning).some(Boolean)}
+                >
+                  Scan All Policies
+                </Button>
+              </div>
 
               {["terms_and_conditions", "privacy_policy", "refund_policy"].map((policyType) => {
                 const summary = summaries.find((s) => s.policy_type === policyType);

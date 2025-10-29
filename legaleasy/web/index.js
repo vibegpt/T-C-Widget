@@ -7,6 +7,8 @@ import serveStatic from "serve-static";
 import shopify from "./shopify.js";
 import productCreator from "./product-creator.js";
 import PrivacyWebhookHandlers from "./privacy.js";
+import AppWebhookHandlers from "./app-webhooks.js";
+import { autoScanPolicies } from "./app-webhooks.js";
 import { getSettings, saveSettings, getSummaries, hasSummaries, saveSummary, getSummary } from "./db.js";
 import { verifyProxySignature } from "./verify-proxy.js";
 import { parseTerms, generateSummary } from "./parse-terms.js";
@@ -42,11 +44,27 @@ app.get(shopify.config.auth.path, shopify.auth.begin());
 app.get(
   shopify.config.auth.callbackPath,
   shopify.auth.callback(),
+  async (req, res, next) => {
+    // Auto-scan policies after successful OAuth
+    const session = res.locals.shopify.session;
+    if (session && session.shop) {
+      // Run auto-scan in background (don't wait)
+      autoScanPolicies(session.shop).catch(err => {
+        console.error(`[OAuth Callback] Auto-scan failed for ${session.shop}:`, err);
+      });
+    }
+    next();
+  },
   shopify.redirectToShopifyOrAppRoot()
 );
 app.post(
   shopify.config.webhooks.path,
-  shopify.processWebhooks({ webhookHandlers: PrivacyWebhookHandlers })
+  shopify.processWebhooks({
+    webhookHandlers: {
+      ...PrivacyWebhookHandlers,
+      ...AppWebhookHandlers
+    }
+  })
 );
 
 // If you are adding routes outside of the /api path, remember to
@@ -205,6 +223,67 @@ app.get("/api/summaries", async (_req, res) => {
   } catch (error) {
     console.error("Error fetching summaries:", error);
     res.status(500).json({ error: "Failed to fetch summaries" });
+  }
+});
+
+// Scan all policies at once
+app.post("/api/scan-all-policies", async (req, res) => {
+  try {
+    const session = res.locals.shopify.session;
+
+    // Fetch all policies from Shopify Admin API
+    const client = new shopify.api.clients.Rest({ session });
+    const policies = await client.get({ path: 'policies' });
+
+    const policyMap = {
+      'terms_and_conditions': policies.body.policies.find(p => p.handle === 'terms-of-service'),
+      'privacy_policy': policies.body.policies.find(p => p.handle === 'privacy-policy'),
+      'refund_policy': policies.body.policies.find(p => p.handle === 'refund-policy'),
+    };
+
+    const results = [];
+    const errors = [];
+
+    // Scan each policy
+    for (const [policyType, policy] of Object.entries(policyMap)) {
+      if (policy && policy.body) {
+        try {
+          const parsed = parseTerms(policy.body);
+          const summaryText = generateSummary(parsed);
+
+          await saveSummary(session.shop, policyType, {
+            summary_text: summaryText,
+            original_url: policy.url,
+            status: 'completed',
+          });
+
+          results.push({ policyType, success: true });
+        } catch (error) {
+          console.error(`Error scanning ${policyType}:`, error);
+          errors.push({ policyType, error: error.message });
+
+          await saveSummary(session.shop, policyType, {
+            summary_text: null,
+            original_url: null,
+            status: 'failed',
+            error_message: error.message,
+          });
+        }
+      } else {
+        // Policy doesn't exist - not an error, just skip
+        results.push({ policyType, success: false, reason: 'Policy not found' });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      scanned: results.filter(r => r.success).length,
+      results,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (error) {
+    console.error("Error scanning all policies:", error);
+    res.status(500).json({ error: "Failed to scan policies", details: error.message });
   }
 });
 
