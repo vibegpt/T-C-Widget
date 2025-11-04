@@ -35,6 +35,12 @@ export function parseTerms(textRaw) {
       terminationAtWill: false,
       optOutDays: null,
       governingLaw: null,
+      // Crypto-specific risks
+      hasClawback: false,
+      hasForcedLiquidation: false,
+      hasAutoDeleveraging: false,
+      hasTradeRollback: false,
+      hasAssetSeizure: false,
     },
   };
 
@@ -110,6 +116,53 @@ export function parseTerms(textRaw) {
   // Refund policy
   if (/no refunds?/i.test(text) || /non[-\s]?refundable/i.test(text)) {
     parsed.keyPoints.push("No refunds policy.");
+  }
+
+  // ===== CRYPTO EXCHANGE SPECIFIC PATTERNS =====
+
+  // Clawback / Profit Retrieval (CRITICAL - MUST DETECT)
+  if (/(clawback|retrieve.*profits?|recover.*profits?|seize.*profits?|confiscate.*profits?)/i.test(text)) {
+    parsed.riskFlags.hasClawback = true;
+
+    // Try to extract clause number
+    const clauseMatch = text.match(/(\d+)\)[^]*?(clawback|retrieve.*profits?)/i);
+    const clauseNum = clauseMatch ? `Clause ${clauseMatch[1]}` : '';
+
+    parsed.keyPoints.push(`🚨 CRITICAL: Clawback provision detected${clauseNum ? ` (${clauseNum})` : ''} - Exchange can retrieve profits.`);
+  }
+
+  // Forced Liquidation
+  if (/(forced?\s+liquidat(ion|e)|auto[-\s]?liquidat(ion|e)|compulsory liquidation|unilateral.*liquidat)/i.test(text)) {
+    parsed.riskFlags.hasForcedLiquidation = true;
+    parsed.keyPoints.push("🚨 CRITICAL: Forced liquidation - Your positions can be closed without consent.");
+  }
+
+  // Auto-Deleveraging (ADL)
+  if (/(auto[-\s]?deleverag|ADL|automatic.*position.*reduc|counter[-\s]?party.*loss)/i.test(text)) {
+    parsed.riskFlags.hasAutoDeleveraging = true;
+    parsed.keyPoints.push("⚠️ Auto-deleveraging (ADL) - Your positions may be reduced due to others' losses.");
+  }
+
+  // Trade Rollback
+  if (/(rollback.*point|rollback.*trad(e|ing)|reverse.*trad(e|ing)|cancel.*executed.*trad|void.*trad(e|ing)|annul.*trad)/i.test(text)) {
+    parsed.riskFlags.hasTradeRollback = true;
+    parsed.keyPoints.push("⚠️ Trade rollback rights - Exchange can reverse executed trades.");
+  }
+
+  // Asset Seizure / Confiscation
+  if (/(confiscate.*assets?|seize.*assets?|forfeit.*assets?|confiscate.*remaining.*assets)/i.test(text)) {
+    parsed.riskFlags.hasAssetSeizure = true;
+    parsed.keyPoints.push("🚨 CRITICAL: Asset confiscation - Your funds can be seized.");
+  }
+
+  // Abnormal Trading (Vague Trigger)
+  if (/abnormal trading.*behavior|abnormal trading.*activities/i.test(text)) {
+    parsed.keyPoints.push("⚠️ 'Abnormal trading' trigger - Vague criteria that could apply to legitimate activity.");
+  }
+
+  // Risk Control Powers
+  if (/risk control.*sole discretion|freeze.*account.*discretion/i.test(text)) {
+    parsed.keyPoints.push("⚠️ Broad risk control powers - Account can be frozen at exchange's discretion.");
   }
 
   return parsed;
