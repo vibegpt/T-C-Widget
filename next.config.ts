@@ -3,10 +3,17 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
+  async rewrites() {
+    return [
+      {
+        source: "/.well-known/agent.json",
+        destination: "/api/agent-card",
+      },
+    ];
+  },
   async headers() {
     return [
       {
-        // Enable CORS for ChatGPT plugin endpoints
         source: "/api/chatgpt/:path*",
         headers: [
           { key: "Access-Control-Allow-Origin", value: "*" },
@@ -15,11 +22,18 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Serve .well-known files with correct content type
         source: "/.well-known/:path*",
         headers: [
           { key: "Content-Type", value: "application/json" },
           { key: "Access-Control-Allow-Origin", value: "*" },
+        ],
+      },
+      {
+        source: "/api/a2a",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET, POST, OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization, X-API-Key" },
         ],
       },
     ];
