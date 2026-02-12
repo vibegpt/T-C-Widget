@@ -1,0 +1,58 @@
+{
+  "name": "@policycheck/service-agent",
+  "version": "1.0.0",
+  "description": "PolicyCheck Service Agent for Agentic Commerce - Policy analysis for AI purchasing agents",
+  "type": "module",
+  "main": "src/api/server.js",
+  "bin": {
+    "policycheck-mcp": "./src/mcp/server.js"
+  },
+  "scripts": {
+    "start": "node src/api/server.js",
+    "dev": "node --watch src/api/server.js",
+    "mcp": "node src/mcp/server.js",
+    "test": "node --test src/**/*.test.js",
+    "lint": "eslint src/",
+    "build": "echo 'No build step required'"
+  },
+  "keywords": [
+    "agentic-commerce",
+    "acp",
+    "stripe",
+    "openai",
+    "mcp",
+    "model-context-protocol",
+    "policy-analysis",
+    "e-commerce",
+    "ai-agent",
+    "service-agent",
+    "returns",
+    "shipping",
+    "warranty",
+    "terms-conditions"
+  ],
+  "author": "PolicyCheck",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/policycheck/service-agent"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0"
+  },
+  "files": [
+    "src/",
+    "specs/",
+    "README.md"
+  ]
+}

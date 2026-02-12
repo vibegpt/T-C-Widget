@@ -1,0 +1,730 @@
+openapi: 3.1.0
+info:
+  title: PolicyCheck Service Agent API
+  description: |
+    # PolicyCheck - Policy Analysis Service Agent for Agentic Commerce
+
+    PolicyCheck is a **Service Agent** for the Agentic Commerce Protocol (ACP) that provides
+    pre-purchase policy analysis for AI purchasing agents.
+
+    ## Use Case
+
+    When an AI agent is helping a user purchase a product, it can consult PolicyCheck
+    before completing the transaction to:
+
+    - Analyze the seller's return/refund policy
+    - Check shipping terms and delivery estimates
+    - Review warranty coverage and exclusions
+    - Identify risks in terms & conditions
+
+    ## Integration with ACP
+
+    PolicyCheck integrates at the "pre-checkout" stage of the ACP flow:
+
+    ```
+    User Intent → Agent Finds Product → [PolicyCheck] → Checkout → Payment
+    ```
+
+    The purchasing agent calls PolicyCheck's API with seller policy URLs, receives
+    a structured risk assessment, and can present findings to the user before
+    they authorize payment.
+
+    ## Authentication
+
+    - **API Key**: Include `X-API-Key` header for authenticated requests
+    - **Rate Limits**: 100 requests/minute for free tier, 1000/minute for paid
+
+  version: 1.0.0
+  contact:
+    name: PolicyCheck Support
+    email: support@policycheck.ai
+    url: https://policycheck.ai
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: https://api.policycheck.ai/v1
+    description: Production API
+  - url: https://api-staging.policycheck.ai/v1
+    description: Staging API
+
+tags:
+  - name: Policy Analysis
+    description: Analyze seller policies for buyer protection
+  - name: Quick Check
+    description: Fast risk assessment tools
+  - name: ACP Integration
+    description: Agentic Commerce Protocol integration endpoints
+
+paths:
+  /analyze/comprehensive:
+    post:
+      operationId: analyzeSellerPolicies
+      summary: Comprehensive seller policy analysis
+      description: |
+        Analyzes all available seller policies and returns a complete risk assessment.
+        This is the primary endpoint for AI purchasing agents to call before checkout.
+
+        **Recommended for**: Full pre-purchase due diligence
+      tags:
+        - Policy Analysis
+        - ACP Integration
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComprehensiveAnalysisRequest'
+            examples:
+              urlBased:
+                summary: Analyze from URLs
+                value:
+                  seller_url: "https://example-store.com"
+                  return_policy_url: "https://example-store.com/policies/refund-policy"
+                  shipping_policy_url: "https://example-store.com/policies/shipping-policy"
+                  terms_url: "https://example-store.com/policies/terms-of-service"
+              textBased:
+                summary: Analyze from text
+                value:
+                  seller_url: "https://example-store.com"
+                  return_policy_text: "Returns accepted within 30 days. Customer pays return shipping. 15% restocking fee applies."
+                  shipping_policy_text: "Free shipping on orders over $50. Standard delivery 5-7 business days."
+      responses:
+        '200':
+          description: Analysis complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComprehensiveAnalysisResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /analyze/returns:
+    post:
+      operationId: analyzeReturnPolicy
+      summary: Analyze return/refund policy
+      description: |
+        Analyzes a seller's return and refund policy.
+
+        Extracts:
+        - Return window (days)
+        - Restocking fees
+        - Who pays return shipping
+        - Exchange-only or store credit restrictions
+        - Final sale items
+        - Condition requirements
+      tags:
+        - Policy Analysis
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyAnalysisRequest'
+      responses:
+        '200':
+          description: Return policy analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReturnPolicyResponse'
+
+  /analyze/shipping:
+    post:
+      operationId: analyzeShippingPolicy
+      summary: Analyze shipping policy
+      description: |
+        Analyzes a seller's shipping policy.
+
+        Extracts:
+        - Free shipping threshold
+        - Shipping timeframes
+        - International shipping availability
+        - Handling time
+        - Carriers and tracking
+      tags:
+        - Policy Analysis
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyAnalysisRequest'
+      responses:
+        '200':
+          description: Shipping policy analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingPolicyResponse'
+
+  /analyze/warranty:
+    post:
+      operationId: analyzeWarrantyPolicy
+      summary: Analyze warranty policy
+      description: |
+        Analyzes a product or seller warranty policy.
+
+        Extracts:
+        - Warranty duration
+        - Warranty type
+        - Coverage details
+        - Exclusions
+        - Claim process
+      tags:
+        - Policy Analysis
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyAnalysisRequest'
+      responses:
+        '200':
+          description: Warranty policy analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarrantyPolicyResponse'
+
+  /analyze/terms:
+    post:
+      operationId: analyzeTermsAndConditions
+      summary: Analyze terms and conditions
+      description: |
+        Analyzes terms and conditions for legal risks.
+
+        Checks for:
+        - Binding arbitration clauses
+        - Class action waivers
+        - Liability caps
+        - Termination rights
+        - Auto-renewal terms
+      tags:
+        - Policy Analysis
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyAnalysisRequest'
+      responses:
+        '200':
+          description: Terms analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TermsAnalysisResponse'
+
+  /quick-check:
+    post:
+      operationId: quickRiskCheck
+      summary: Quick risk check from seller URL
+      description: |
+        Automatically discovers and analyzes common policy pages from a seller URL.
+
+        Tries common paths like:
+        - /policies/refund-policy
+        - /policies/shipping-policy
+        - /pages/terms-of-service
+
+        **Recommended for**: Fast pre-purchase checks when policy URLs are unknown
+      tags:
+        - Quick Check
+        - ACP Integration
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - seller_url
+              properties:
+                seller_url:
+                  type: string
+                  format: uri
+                  description: Base URL of the seller
+                  example: "https://example-store.com"
+      responses:
+        '200':
+          description: Quick check results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuickCheckResponse'
+
+  /acp/policy-check:
+    post:
+      operationId: acpPolicyCheck
+      summary: ACP-integrated policy check
+      description: |
+        Policy check endpoint designed for Agentic Commerce Protocol integration.
+
+        Accepts ACP checkout context and returns policy assessment in ACP-compatible format.
+
+        This endpoint is designed to be called by purchasing agents during the
+        ACP checkout flow, between `CreateCheckoutRequest` and `CompleteCheckoutRequest`.
+      tags:
+        - ACP Integration
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ACPPolicyCheckRequest'
+      responses:
+        '200':
+          description: ACP-formatted policy assessment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ACPPolicyCheckResponse'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication
+
+  schemas:
+    ComprehensiveAnalysisRequest:
+      type: object
+      properties:
+        seller_url:
+          type: string
+          format: uri
+          description: Base URL of the seller
+        return_policy_url:
+          type: string
+          format: uri
+          description: URL to return/refund policy
+        return_policy_text:
+          type: string
+          description: Raw text of return policy
+        shipping_policy_url:
+          type: string
+          format: uri
+          description: URL to shipping policy
+        shipping_policy_text:
+          type: string
+          description: Raw text of shipping policy
+        warranty_policy_url:
+          type: string
+          format: uri
+          description: URL to warranty policy
+        warranty_policy_text:
+          type: string
+          description: Raw text of warranty policy
+        terms_url:
+          type: string
+          format: uri
+          description: URL to terms and conditions
+        terms_text:
+          type: string
+          description: Raw text of terms and conditions
+
+    PolicyAnalysisRequest:
+      type: object
+      properties:
+        policy_url:
+          type: string
+          format: uri
+          description: URL to the policy page
+        policy_text:
+          type: string
+          description: Raw text of the policy
+
+    ComprehensiveAnalysisResponse:
+      type: object
+      required:
+        - success
+        - analysis
+      properties:
+        success:
+          type: boolean
+        analysis:
+          $ref: '#/components/schemas/FullAnalysis'
+        humanReadableSummary:
+          type: string
+          description: Markdown-formatted summary for display to users
+
+    FullAnalysis:
+      type: object
+      properties:
+        overallRiskScore:
+          type: string
+          enum: [low, medium, high, critical]
+          description: Overall risk assessment
+        buyerProtectionScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Buyer protection score (higher is better)
+        recommendation:
+          type: string
+          enum: [proceed, proceed_with_caution, review_carefully, not_recommended]
+          description: Purchase recommendation
+        allRiskFlags:
+          type: array
+          items:
+            type: string
+          description: All identified risk flags
+        allKeyPoints:
+          type: array
+          items:
+            type: string
+          description: Key points in plain English
+        returnPolicy:
+          $ref: '#/components/schemas/ReturnPolicy'
+        shippingPolicy:
+          $ref: '#/components/schemas/ShippingPolicy'
+        warrantyPolicy:
+          $ref: '#/components/schemas/WarrantyPolicy'
+        termsAndConditions:
+          $ref: '#/components/schemas/TermsAndConditions'
+
+    ReturnPolicy:
+      type: object
+      properties:
+        allowsReturns:
+          type: boolean
+        returnWindowDays:
+          type: integer
+          nullable: true
+        returnWindowType:
+          type: string
+          enum: [calendar, business]
+          nullable: true
+        restockingFeePercent:
+          type: number
+          nullable: true
+        returnShippingPaidBy:
+          type: string
+          enum: [customer, seller, prepaid_label]
+          nullable: true
+        exchangeOnly:
+          type: boolean
+        storeCreditOnly:
+          type: boolean
+        originalPackagingRequired:
+          type: boolean
+        unusedConditionRequired:
+          type: boolean
+        finalSaleItems:
+          type: array
+          items:
+            type: string
+        riskFlags:
+          type: array
+          items:
+            type: string
+        keyPoints:
+          type: array
+          items:
+            type: string
+
+    ShippingPolicy:
+      type: object
+      properties:
+        freeShippingThreshold:
+          type: number
+          nullable: true
+        freeShippingAvailable:
+          type: boolean
+        standardShippingDays:
+          type: object
+          nullable: true
+          properties:
+            min:
+              type: integer
+            max:
+              type: integer
+        expeditedAvailable:
+          type: boolean
+        expeditedShippingDays:
+          type: object
+          nullable: true
+          properties:
+            min:
+              type: integer
+            max:
+              type: integer
+        internationalShipping:
+          oneOf:
+            - type: boolean
+            - type: string
+              enum: [select_countries]
+          nullable: true
+        handlingTimeDays:
+          type: object
+          nullable: true
+          properties:
+            min:
+              type: integer
+            max:
+              type: integer
+        shippingCarriers:
+          type: array
+          items:
+            type: string
+        trackingProvided:
+          type: boolean
+        riskFlags:
+          type: array
+          items:
+            type: string
+        keyPoints:
+          type: array
+          items:
+            type: string
+
+    WarrantyPolicy:
+      type: object
+      properties:
+        hasWarranty:
+          type: boolean
+        warrantyDurationMonths:
+          type: integer
+          nullable: true
+          description: -1 indicates lifetime warranty
+        warrantyType:
+          type: string
+          enum: [limited, full, lifetime, manufacturer]
+          nullable: true
+        coversDefects:
+          type: boolean
+        coversAccidentalDamage:
+          type: boolean
+        coversWaterDamage:
+          type: boolean
+        exclusions:
+          type: array
+          items:
+            type: string
+        riskFlags:
+          type: array
+          items:
+            type: string
+        keyPoints:
+          type: array
+          items:
+            type: string
+
+    TermsAndConditions:
+      type: object
+      properties:
+        updatedAt:
+          type: string
+          nullable: true
+        hasArbitration:
+          type: boolean
+        arbitrationProvider:
+          type: string
+          nullable: true
+        hasClassWaiver:
+          type: boolean
+        optOutDays:
+          type: integer
+          nullable: true
+        liabilityCap:
+          type: number
+          nullable: true
+        terminationAtWill:
+          type: boolean
+        governingLaw:
+          type: string
+          nullable: true
+        autoRenewal:
+          type: boolean
+        riskFlags:
+          type: array
+          items:
+            type: string
+        keyPoints:
+          type: array
+          items:
+            type: string
+
+    ReturnPolicyResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        returnPolicy:
+          $ref: '#/components/schemas/ReturnPolicy'
+
+    ShippingPolicyResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        shippingPolicy:
+          $ref: '#/components/schemas/ShippingPolicy'
+
+    WarrantyPolicyResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        warrantyPolicy:
+          $ref: '#/components/schemas/WarrantyPolicy'
+
+    TermsAnalysisResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        termsAndConditions:
+          $ref: '#/components/schemas/TermsAndConditions'
+
+    QuickCheckResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        sellerUrl:
+          type: string
+        policiesFound:
+          type: array
+          items:
+            type: string
+        analysis:
+          $ref: '#/components/schemas/FullAnalysis'
+        humanReadableSummary:
+          type: string
+
+    ACPPolicyCheckRequest:
+      type: object
+      required:
+        - seller_id
+      properties:
+        seller_id:
+          type: string
+          description: Seller identifier (URL or merchant ID)
+        seller_url:
+          type: string
+          format: uri
+          description: Seller's website URL
+        checkout_context:
+          type: object
+          description: Optional ACP checkout state for context
+          properties:
+            cart_total:
+              type: number
+            currency:
+              type: string
+            items:
+              type: array
+              items:
+                type: object
+        policy_urls:
+          type: object
+          properties:
+            returns:
+              type: string
+              format: uri
+            shipping:
+              type: string
+              format: uri
+            warranty:
+              type: string
+              format: uri
+            terms:
+              type: string
+              format: uri
+
+    ACPPolicyCheckResponse:
+      type: object
+      properties:
+        service_agent:
+          type: string
+          const: policycheck
+        version:
+          type: string
+        assessment:
+          type: object
+          properties:
+            risk_level:
+              type: string
+              enum: [low, medium, high, critical]
+            buyer_protection_score:
+              type: integer
+            recommendation:
+              type: string
+              enum: [proceed, proceed_with_caution, review_carefully, not_recommended]
+            should_warn_user:
+              type: boolean
+              description: Whether the agent should warn the user before checkout
+        summary:
+          type: string
+          description: Brief summary for the purchasing agent
+        details:
+          $ref: '#/components/schemas/FullAnalysis'
+        display:
+          type: object
+          description: Pre-formatted content for user display
+          properties:
+            title:
+              type: string
+            body:
+              type: string
+            warnings:
+              type: array
+              items:
+                type: string
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimited:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "rate_limit_exceeded"
+            message: "Too many requests. Please wait before retrying."
+            code: "RATE_LIMITED"

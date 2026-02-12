@@ -1,0 +1,89 @@
+{
+  "name": "PolicyCheck",
+  "description": "Pre-purchase policy analysis service agent for AI-powered commerce. Analyses seller return policies, shipping terms, warranty coverage, terms & conditions, and privacy policies before checkout. Returns structured risk assessments, buyer protection scores, plain-English summaries, and actionable warnings. Designed to be called by purchasing agents (ChatGPT, Claude, custom agents) during the Agentic Commerce Protocol (ACP) checkout flow to provide due diligence on any merchant.",
+  "version": "1.0.0",
+  "url": "https://legaleasy.tools/api/a2a",
+  "protocolVersion": "0.2.0",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false
+  },
+  "defaultInputModes": ["text"],
+  "defaultOutputModes": ["text"],
+  "skills": [
+    {
+      "id": "comprehensive-policy-analysis",
+      "name": "Comprehensive Policy Analysis",
+      "description": "Full analysis of a seller's return, shipping, warranty, and terms policies. Accepts policy URLs or raw text. Returns overall risk score (low/medium/high/critical), buyer protection score (0-100), key findings in plain English, risk flags, and a purchase recommendation. Use this before completing any purchase on behalf of a user.",
+      "tags": ["policy","risk-assessment","buyer-protection","commerce","returns","shipping","warranty","terms","compliance","consumer-protection","pre-purchase","due-diligence"],
+      "examples": [
+        "Analyse all policies for https://example-store.com before I purchase wireless earbuds for $79.99",
+        "Check the return and shipping policies at this URL: https://store.com/policies/refund-policy",
+        "What are the risks in these terms of service? [raw text]"
+      ]
+    },
+    {
+      "id": "quick-risk-check",
+      "name": "Quick Risk Check",
+      "description": "Auto-discovers and analyses policy pages from a seller's base URL. Crawls common policy paths (/policies/refund-policy, /policies/shipping-policy, /terms-of-service etc.) and returns a quick risk score. Best for fast pre-purchase screening when you only have the seller's homepage URL.",
+      "tags": ["quick-check","auto-discovery","risk-score","seller-screening"],
+      "examples": [
+        "Quick risk check on https://techgadgets-store.com",
+        "Is this seller safe to buy from? https://example-shop.com"
+      ]
+    },
+    {
+      "id": "return-policy-analysis",
+      "name": "Return Policy Analysis",
+      "description": "Focused analysis of a seller's return/refund policy. Extracts return window (days), restocking fees, who pays return shipping, exchange-only or store-credit restrictions, final sale items, and condition requirements.",
+      "tags": ["returns","refunds","restocking-fee","return-window"],
+      "examples": [
+        "What's the return policy at https://store.com/policies/refund-policy",
+        "Analyse this return policy text for hidden restrictions"
+      ]
+    },
+    {
+      "id": "shipping-policy-analysis",
+      "name": "Shipping Policy Analysis",
+      "description": "Focused analysis of a seller's shipping policy. Extracts free shipping thresholds, delivery timeframes, international availability, handling time, carriers, and tracking availability.",
+      "tags": ["shipping","delivery","free-shipping","tracking"],
+      "examples": [
+        "How long does shipping take from this store?",
+        "Does this seller offer free shipping and tracking?"
+      ]
+    },
+    {
+      "id": "warranty-analysis",
+      "name": "Warranty Analysis",
+      "description": "Focused analysis of product or seller warranty. Extracts warranty duration, type (limited/full/lifetime/manufacturer), coverage details, exclusions, and claim process.",
+      "tags": ["warranty","guarantee","coverage","exclusions"],
+      "examples": [
+        "What does the warranty cover for this product?",
+        "Are there any warranty exclusions I should know about?"
+      ]
+    },
+    {
+      "id": "terms-analysis",
+      "name": "Terms & Conditions Analysis",
+      "description": "Legal risk analysis of terms and conditions. Checks for binding arbitration clauses, class action waivers, liability caps, termination rights, auto-renewal terms, governing law/jurisdiction, and data practices. Especially important for high-value purchases or ongoing subscriptions.",
+      "tags": ["terms","legal","arbitration","liability","class-action","jurisdiction","auto-renewal","consumer-rights"],
+      "examples": [
+        "Are there any legal red flags in these terms of service?",
+        "Does this company have binding arbitration or class action waivers?"
+      ]
+    }
+  ],
+  "provider": {
+    "organization": "LegalEasy",
+    "url": "https://legaleasy.tools"
+  },
+  "documentationUrl": "https://legaleasy.tools/docs/a2a",
+  "security": [
+    {
+      "type": "apiKey",
+      "in": "header",
+      "name": "X-API-Key",
+      "description": "API key for authenticated access. Free tier: 100 requests/minute. Contact api@legaleasy.tools for higher limits."
+    }
+  ]
+}
