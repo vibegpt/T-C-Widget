@@ -1,0 +1,43 @@
+{
+  "name": "policycheck-mcp",
+  "version": "1.0.1",
+  "mcpName": "io.github.vibegpt/policycheck",
+  "description": "MCP server for AI seller verification and policy risk analysis. Checks return policies, shipping, warranty, and terms of service for any online store.",
+  "type": "module",
+  "bin": {
+    "policycheck-mcp": "./server.js"
+  },
+  "main": "server.js",
+  "files": [
+    "server.js",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "seller-verification",
+    "policy-analysis",
+    "buyer-protection",
+    "risk-assessment",
+    "ecommerce",
+    "ai-agent",
+    "agentic-commerce"
+  ],
+  "author": "vibegpt",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vibegpt/T-C-Widget.git",
+    "directory": "policycheck-mcp"
+  },
+  "homepage": "https://legaleasy.tools",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

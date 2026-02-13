@@ -11,11 +11,16 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@coinbase/x402": "^2.1.0",
     "@mozilla/readability": "^0.6.0",
     "@portabletext/react": "^4.0.3",
     "@sanity/image-url": "^1.2.0",
     "@sanity/vision": "^4.10.2",
     "@supabase/supabase-js": "^2.57.4",
+    "@x402/core": "^2.3.1",
+    "@x402/evm": "^2.3.1",
+    "@x402/extensions": "^2.3.1",
+    "@x402/fetch": "^2.3.0",
     "cheerio": "^1.1.2",
     "jsdom": "^27.0.0",
     "lucide-react": "^0.544.0",
@@ -24,7 +29,8 @@
     "openai": "^6.3.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "sanity": "^4.10.2"
+    "sanity": "^4.10.2",
+    "viem": "^2.45.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

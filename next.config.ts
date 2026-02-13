@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
         source: "/.well-known/agent.json",
         destination: "/api/agent-card",
       },
+      {
+        source: "/.well-known/x402.json",
+        destination: "/api/x402-discovery",
+      },
     ];
   },
   async headers() {

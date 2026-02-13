@@ -1,6 +1,6 @@
 {
   "name": "PolicyCheck",
-  "description": "Pre-purchase policy analysis service agent for AI-powered commerce. Analyses seller return policies, shipping terms, warranty coverage, terms & conditions, and privacy policies before checkout. Returns structured risk assessments, buyer protection scores, plain-English summaries, and actionable warnings. Designed to be called by purchasing agents (ChatGPT, Claude, custom agents) during the Agentic Commerce Protocol (ACP) checkout flow to provide due diligence on any merchant.",
+  "description": "Seller policy risk intelligence for AI-powered commerce. Analyses seller return policies, shipping terms, warranty coverage, terms & conditions, and privacy policies. Returns structured risk data including risk level classifications, buyer protection scores (0-100), key findings, and factual summaries. Designed to be called by purchasing agents (ChatGPT, Claude, custom agents) to provide policy risk data for any merchant.",
   "version": "1.0.0",
   "url": "https://legaleasy.tools/api/a2a",
   "protocolVersion": "0.2.0",
@@ -14,7 +14,7 @@
     {
       "id": "comprehensive-policy-analysis",
       "name": "Comprehensive Policy Analysis",
-      "description": "Full analysis of a seller's return, shipping, warranty, and terms policies. Accepts policy URLs or raw text. Returns overall risk score (low/medium/high/critical), buyer protection score (0-100), key findings in plain English, risk flags, and a purchase recommendation. Use this before completing any purchase on behalf of a user.",
+      "description": "Full analysis of a seller's return, shipping, warranty, and terms policies. Accepts policy URLs or raw text. Returns overall risk score (low/medium/high/critical), buyer protection score (0-100), key findings in plain English, risk flags, and a factual summary. Provides risk data to inform purchase decisions.",
       "tags": ["policy", "risk-assessment", "buyer-protection", "commerce", "returns", "shipping", "warranty", "terms", "compliance", "consumer-protection", "pre-purchase", "due-diligence"],
       "examples": [
         "Analyse all policies for https://example-store.com before I purchase wireless earbuds for $79.99",
@@ -29,7 +29,7 @@
       "tags": ["quick-check", "auto-discovery", "risk-score", "seller-screening"],
       "examples": [
         "Quick risk check on https://techgadgets-store.com",
-        "Is this seller safe to buy from? https://example-shop.com"
+        "Get risk data for this seller: https://example-shop.com"
       ]
     },
     {
