@@ -38,7 +38,7 @@
 
     // Create a script tag to load your existing legaleasy-loader.js from Vercel
     const widgetScript = document.createElement('script');
-    widgetScript.src = `https://legaleasy.tools/legaleasy-loader.js`;
+    widgetScript.src = `https://policycheck.tools/legaleasy-loader.js`;
     widgetScript.defer = true;
 
     // Pass config as a global variable that the loader can read

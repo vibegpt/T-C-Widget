@@ -196,8 +196,8 @@ export async function GET() {
   return NextResponse.json({
     name: "PolicyCheck",
     description: "Pre-purchase policy analysis service agent. Send a JSON-RPC 2.0 POST to this endpoint.",
-    agentCard: "https://legaleasy.tools/.well-known/agent.json",
-    documentation: "https://legaleasy.tools/docs/a2a",
+    agentCard: "https://policycheck.tools/.well-known/agent.json",
+    documentation: "https://policycheck.tools/docs/a2a",
   });
 }
 

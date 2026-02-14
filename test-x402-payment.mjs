@@ -34,11 +34,11 @@ const fetchWithPayment = wrapFetchWithPayment(fetch, client);
 
 // Make paid request to PolicyCheck
 console.log("\nSending paid analysis request to PolicyCheck...");
-console.log("Endpoint: https://legaleasy.tools/api/x402/analyze");
+console.log("Endpoint: https://policycheck.tools/api/x402/analyze");
 console.log("Price: $0.03 USDC on Base Sepolia\n");
 
 try {
-  const response = await fetchWithPayment("https://legaleasy.tools/api/x402/analyze", {
+  const response = await fetchWithPayment("https://policycheck.tools/api/x402/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

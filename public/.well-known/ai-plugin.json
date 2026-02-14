@@ -9,10 +9,10 @@
   },
   "api": {
     "type": "openapi",
-    "url": "https://legaleasy.tools/openapi.json",
+    "url": "https://policycheck.tools/openapi.json",
     "is_user_authenticated": false
   },
-  "logo_url": "https://legaleasy.tools/logo.png",
-  "contact_email": "support@legaleasy.tools",
-  "legal_info_url": "https://legaleasy.tools/legal"
+  "logo_url": "https://policycheck.tools/logo.png",
+  "contact_email": "support@policycheck.tools",
+  "legal_info_url": "https://policycheck.tools/legal"
 }

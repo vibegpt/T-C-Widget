@@ -2,7 +2,7 @@
   "name": "PolicyCheck",
   "description": "Seller policy risk intelligence for AI-powered commerce. Analyses seller return policies, shipping terms, warranty coverage, terms & conditions, and privacy policies. Returns structured risk data including risk level classifications, buyer protection scores (0-100), key findings, and factual summaries. Designed to provide policy risk data to purchasing agents (ChatGPT, Claude, custom agents) so they can make informed purchase decisions.",
   "version": "1.0.0",
-  "url": "https://legaleasy.tools/api/a2a",
+  "url": "https://policycheck.tools/api/a2a",
   "protocolVersion": "0.2.0",
   "capabilities": {
     "streaming": false,
@@ -75,15 +75,15 @@
   ],
   "provider": {
     "organization": "LegalEasy",
-    "url": "https://legaleasy.tools"
+    "url": "https://policycheck.tools"
   },
-  "documentationUrl": "https://legaleasy.tools/docs/a2a",
+  "documentationUrl": "https://policycheck.tools/docs/a2a",
   "security": [
     {
       "type": "apiKey",
       "in": "header",
       "name": "X-API-Key",
-      "description": "API key for authenticated access. Free tier: 100 requests/minute. Contact api@legaleasy.tools for higher limits."
+      "description": "API key for authenticated access. Free tier: 100 requests/minute. Contact api@policycheck.tools for higher limits."
     }
   ]
 }

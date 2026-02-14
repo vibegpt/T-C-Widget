@@ -3,7 +3,7 @@
  * PolicyCheck MCP Server
  *
  * Exposes PolicyCheck policy analysis as MCP tools.
- * Each tool calls the live A2A API at legaleasy.tools via JSON-RPC 2.0.
+ * Each tool calls the live A2A API at policycheck.tools via JSON-RPC 2.0.
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -13,7 +13,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-const A2A_URL = process.env.POLICYCHECK_API_URL || "https://legaleasy.tools/api/a2a";
+const A2A_URL = process.env.POLICYCHECK_API_URL || "https://policycheck.tools/api/a2a";
 
 // ── JSON-RPC 2.0 helper ────────────────────────────────────────────────────
 

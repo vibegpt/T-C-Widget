@@ -72,7 +72,7 @@ export default function LegalPage() {
               <li>Request data portability</li>
             </ul>
             <p className="mb-4">
-              Contact us at <a href="mailto:privacy@legaleasy.tools" className="text-blue-600 hover:underline">privacy@legaleasy.tools</a> to exercise these rights.
+              Contact us at <a href="mailto:privacy@policycheck.tools" className="text-blue-600 hover:underline">privacy@policycheck.tools</a> to exercise these rights.
             </p>
 
             <h3 className="text-xl font-semibold mt-6 mb-3">6. Data Retention</h3>
@@ -87,7 +87,7 @@ export default function LegalPage() {
 
             <h3 className="text-xl font-semibold mt-6 mb-3">7. Contact</h3>
             <p className="mb-4">
-              For privacy questions or requests: <a href="mailto:privacy@legaleasy.tools" className="text-blue-600 hover:underline">privacy@legaleasy.tools</a>
+              For privacy questions or requests: <a href="mailto:privacy@policycheck.tools" className="text-blue-600 hover:underline">privacy@policycheck.tools</a>
             </p>
           </div>
         </section>
@@ -166,7 +166,7 @@ export default function LegalPage() {
 
             <h3 className="text-xl font-semibold mt-6 mb-3">11. Contact</h3>
             <p className="mb-4">
-              For questions about these terms: <a href="mailto:legal@legaleasy.tools" className="text-blue-600 hover:underline">legal@legaleasy.tools</a>
+              For questions about these terms: <a href="mailto:legal@policycheck.tools" className="text-blue-600 hover:underline">legal@policycheck.tools</a>
             </p>
           </div>
         </section>
@@ -179,9 +179,9 @@ export default function LegalPage() {
               Need help? We're here for you:
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2">
-              <li><strong>Email:</strong> <a href="mailto:support@legaleasy.tools" className="text-blue-600 hover:underline">support@legaleasy.tools</a></li>
+              <li><strong>Email:</strong> <a href="mailto:support@policycheck.tools" className="text-blue-600 hover:underline">support@policycheck.tools</a></li>
               <li><strong>Response Time:</strong> Within 24 hours (business days)</li>
-              <li><strong>Documentation:</strong> <a href="https://legaleasy.tools" className="text-blue-600 hover:underline">legaleasy.tools</a></li>
+              <li><strong>Documentation:</strong> <a href="https://policycheck.tools" className="text-blue-600 hover:underline">policycheck.tools</a></li>
             </ul>
           </div>
         </section>

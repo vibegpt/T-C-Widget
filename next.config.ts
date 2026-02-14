@@ -3,6 +3,22 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "legaleasy.tools" }],
+        destination: "https://policycheck.tools/:path*",
+        permanent: true,
+      },
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.legaleasy.tools" }],
+        destination: "https://policycheck.tools/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

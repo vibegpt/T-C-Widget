@@ -33,7 +33,7 @@
     "url": "https://github.com/vibegpt/T-C-Widget.git",
     "directory": "policycheck-mcp"
   },
-  "homepage": "https://legaleasy.tools",
+  "homepage": "https://policycheck.tools",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1"
   },

@@ -65,8 +65,8 @@ export async function GET() {
         },
       },
       discovery: {
-        wellKnown: "https://legaleasy.tools/.well-known/x402.json",
-        a2a: "https://legaleasy.tools/.well-known/agent.json",
+        wellKnown: "https://policycheck.tools/.well-known/x402.json",
+        a2a: "https://policycheck.tools/.well-known/agent.json",
         mcp: "https://www.npmjs.com/package/policycheck-mcp",
       },
     },

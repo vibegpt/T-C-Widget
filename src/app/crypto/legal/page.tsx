@@ -105,8 +105,8 @@ export default function CryptoLegalPage() {
         <h2 className="text-2xl font-semibold">Contact</h2>
         <p>
           For questions about this website or to report errors, please contact us at{' '}
-          <a href="mailto:support@legaleasy.tools" className="text-blue-600 hover:underline">
-            support@legaleasy.tools
+          <a href="mailto:support@policycheck.tools" className="text-blue-600 hover:underline">
+            support@policycheck.tools
           </a>
         </p>
       </section>

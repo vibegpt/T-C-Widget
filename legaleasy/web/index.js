@@ -98,7 +98,7 @@ app.get("/apps/legaleasy/config", async (req, res) => {
       enabled: settings.enabled,
       brandColor: settings.brand_color,
       brandIcon: settings.brand_icon,
-      vercelApiUrl: settings.vercel_api_url || "https://legaleasy.tools"
+      vercelApiUrl: settings.vercel_api_url || "https://policycheck.tools"
     };
 
     console.log(`Config request for shop: ${shop}`);

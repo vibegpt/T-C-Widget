@@ -7,7 +7,7 @@
  * Usage:
  *   node test-a2a-client.mjs                          # test against localhost
  *   node test-a2a-client.mjs https://some-store.com   # test with a real seller URL
- *   POLICYCHECK_URL=https://legaleasy.tools node test-a2a-client.mjs  # test production
+ *   POLICYCHECK_URL=https://policycheck.tools node test-a2a-client.mjs  # test production
  */
 
 const BASE_URL = process.env.POLICYCHECK_URL || "http://localhost:3000";

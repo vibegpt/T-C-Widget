@@ -14,7 +14,7 @@ const manifest = {
   x402Version: 2,
   resources: [
     {
-      url: "https://legaleasy.tools/api/x402/analyze",
+      url: "https://policycheck.tools/api/x402/analyze",
       method: "POST",
       description:
         "PolicyCheck premium analysis — seller policy risk intelligence for terms & conditions, return policies, and legal documents. Returns risk level, buyer protection score, key findings, and factual summary.",
@@ -77,12 +77,12 @@ const manifest = {
   ],
   provider: {
     name: "PolicyCheck by LegalEasy",
-    url: "https://legaleasy.tools",
+    url: "https://policycheck.tools",
     description:
       "AI-powered pre-purchase policy analysis for agentic commerce",
   },
   relatedProtocols: {
-    a2a: "https://legaleasy.tools/.well-known/agent.json",
+    a2a: "https://policycheck.tools/.well-known/agent.json",
     mcp: "https://www.npmjs.com/package/policycheck-mcp",
   },
 };
