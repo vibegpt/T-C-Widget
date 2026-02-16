@@ -7,7 +7,7 @@ import {
 import { registerExactEvmScheme } from "@x402/evm/exact/server";
 import { createFacilitatorConfig } from "@coinbase/x402";
 import { declareDiscoveryExtension, bazaarResourceServerExtension } from "@x402/extensions/bazaar";
-import { analyseText, analyseFromUrl, quickRiskCheck } from "@/lib/policy-analysis";
+import { deepAnalyze } from "@/lib/deepPolicyAnalyzer";
 
 export const runtime = "nodejs";
 
@@ -126,20 +126,20 @@ export async function POST(req: NextRequest) {
     if (result.type === "payment-verified") {
       // Parse and validate the request body before settling
       const body = await req.json();
-      let analysisResult;
+      const sellerUrl = body.sellerUrl || body.seller_url || body.url;
+      const policyText = body.text || body.policy_text;
 
-      if (body.sellerUrl) {
-        analysisResult = await quickRiskCheck(body.sellerUrl);
-      } else if (body.url) {
-        analysisResult = await analyseFromUrl(body.url);
-      } else if (body.text) {
-        analysisResult = analyseText(body.text);
-      } else {
+      if (!sellerUrl && !policyText) {
         return NextResponse.json(
           { error: "Provide 'url', 'sellerUrl', or 'text' in request body" },
           { status: 400 },
         );
       }
+
+      const analysisResult = await deepAnalyze(
+        sellerUrl || "direct text analysis",
+        policyText || null,
+      );
 
       // Analysis succeeded — now settle the payment
       const settleResult = await server.processSettlement(

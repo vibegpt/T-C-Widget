@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  fetchPolicyFromUrl,
-  analyseText,
-  analyseFromUrl,
-  quickRiskCheck,
-} from "@/lib/policy-analysis";
+import { deepAnalyze } from "@/lib/deepPolicyAnalyzer";
 
 export const runtime = "nodejs";
 
@@ -71,18 +66,10 @@ function generateArtifactId(): string {
 
 // ── Intent extraction from natural language ──────────────────────────────────
 
-function extractIntent(text: string): { skill: string; url?: string; rawText?: string } {
+function extractIntent(text: string): { url?: string; rawText?: string } {
   const urlMatch = text.match(/https?:\/\/[^\s"'<>]+/);
   const url = urlMatch ? urlMatch[0] : undefined;
-  const lower = text.toLowerCase();
-
-  if (lower.includes("quick") && lower.includes("check")) return { skill: "quick-risk-check", url };
-  if (lower.includes("return") || lower.includes("refund")) return { skill: "return-policy-analysis", url, rawText: url ? undefined : text };
-  if (lower.includes("shipping") || lower.includes("delivery")) return { skill: "shipping-policy-analysis", url, rawText: url ? undefined : text };
-  if (lower.includes("warranty") || lower.includes("guarantee")) return { skill: "warranty-analysis", url, rawText: url ? undefined : text };
-  if (lower.includes("terms") || lower.includes("legal") || lower.includes("arbitration")) return { skill: "terms-analysis", url, rawText: url ? undefined : text };
-  if (url) return { skill: "comprehensive-policy-analysis", url };
-  return { skill: "comprehensive-policy-analysis", rawText: text };
+  return { url, rawText: url ? undefined : text };
 }
 
 // ── A2A message/send handler ─────────────────────────────────────────────────
@@ -98,42 +85,47 @@ async function handleMessageSend(params: Record<string, unknown>): Promise<Task>
   const textPart = message.parts.find((p) => p.kind === "text");
   const dataPart = message.parts.find((p) => p.kind === "data");
 
-  let analysisResult: Record<string, unknown>;
+  let sellerUrl: string | undefined;
+  let policyText: string | undefined;
 
   if (dataPart && dataPart.data) {
     const data = dataPart.data as Record<string, string>;
-    if (data.seller_url && data.skill === "quick-risk-check") {
-      analysisResult = await quickRiskCheck(data.seller_url) as Record<string, unknown>;
-    } else if (data.url) {
-      analysisResult = await analyseFromUrl(data.url) as Record<string, unknown>;
-    } else if (data.seller_url) {
-      analysisResult = await quickRiskCheck(data.seller_url) as Record<string, unknown>;
-    } else {
-      throw { code: -32602, message: "Provide seller_url or url in data part" };
-    }
+    sellerUrl = data.seller_url || data.url;
+    policyText = data.policy_text || data.text;
   } else if (textPart && textPart.text) {
     const intent = extractIntent(textPart.text);
-    if (intent.skill === "quick-risk-check" && intent.url) {
-      analysisResult = await quickRiskCheck(intent.url) as Record<string, unknown>;
-    } else if (intent.url) {
-      analysisResult = await analyseFromUrl(intent.url) as Record<string, unknown>;
-    } else if (intent.rawText) {
-      analysisResult = { source: "raw_text", ...analyseText(intent.rawText) };
-    } else {
-      throw { code: -32602, message: "Please provide a seller URL or paste policy text directly." };
-    }
-  } else {
-    throw { code: -32602, message: "No text or data part found in message" };
+    sellerUrl = intent.url;
+    policyText = intent.rawText;
   }
+
+  if (!sellerUrl && !policyText) {
+    throw { code: -32602, message: "Provide seller_url or url in data part, or paste policy text directly." };
+  }
+
+  const analysisResult = await deepAnalyze(
+    sellerUrl || "direct text analysis",
+    policyText || null,
+  );
 
   // Build human-readable summary
   const summaryLines: string[] = [];
-  if (analysisResult.riskLevel) summaryLines.push(`Risk Level: ${(analysisResult.riskLevel as string).toUpperCase()}`);
-  if (analysisResult.buyerProtectionScore !== undefined) summaryLines.push(`Buyer Protection Score: ${analysisResult.buyerProtectionScore}/100`);
-  if (analysisResult.summary) summaryLines.push(`Summary: ${analysisResult.summary}`);
-  if (Array.isArray(analysisResult.keyFindings)) {
-    summaryLines.push("", "Key Findings:");
-    (analysisResult.keyFindings as string[]).forEach((f) => summaryLines.push(`  ${f}`));
+  summaryLines.push(`Risk Level: ${analysisResult.risk_level.toUpperCase()}`);
+  summaryLines.push(`Risk Score: ${analysisResult.risk_score}/10`);
+  summaryLines.push(`Buyer Protection: ${analysisResult.buyer_protection_rating} (${analysisResult.buyer_protection_score}/100)`);
+  if (analysisResult.summary) summaryLines.push(`\nSummary: ${analysisResult.summary}`);
+
+  if (analysisResult.risk_factors.length > 0) {
+    summaryLines.push("", "Risk Factors:");
+    for (const f of analysisResult.risk_factors) {
+      summaryLines.push(`  [${f.severity.toUpperCase()}] ${f.factor}: ${f.detail}`);
+    }
+  }
+
+  if (analysisResult.positives.length > 0) {
+    summaryLines.push("", "Positives:");
+    for (const p of analysisResult.positives) {
+      summaryLines.push(`  + ${p}`);
+    }
   }
 
   const task: Task = {
@@ -150,7 +142,7 @@ async function handleMessageSend(params: Record<string, unknown>): Promise<Task>
         artifactId: generateArtifactId(),
         name: "policy_analysis",
         parts: [
-          { kind: "data", data: analysisResult, mimeType: "application/json" },
+          { kind: "data", data: analysisResult as unknown as Record<string, unknown>, mimeType: "application/json" },
           { kind: "text", text: summaryLines.join("\n") },
         ],
       },

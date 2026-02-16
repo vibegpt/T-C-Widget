@@ -28,11 +28,13 @@ export async function OPTIONS() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { seller_url, policy_text } = body;
+    // Accept both "seller_url" and "url" for compatibility
+    const seller_url = body.seller_url || body.url;
+    const policy_text = body.policy_text;
 
     if (!seller_url && !policy_text) {
       return NextResponse.json(
-        { error: "Provide seller_url or policy_text" },
+        { error: "Provide seller_url (or url) or policy_text" },
         { status: 400, headers: CORS_HEADERS },
       );
     }
