@@ -1,0 +1,117 @@
+{
+  "version": "1.0.0",
+  "updated": "2026-02-16",
+  "description": "PolicyCheck clause type registry. Agent developers write rules against these identifiers. Names are stable within a major version.",
+  "clause_types": {
+    "binding_arbitration": {
+      "category": "legal",
+      "description": "Disputes must be resolved through binding arbitration, not courts",
+      "typical_severity": "high"
+    },
+    "class_action_waiver": {
+      "category": "legal",
+      "description": "Buyer waives right to participate in class action lawsuits",
+      "typical_severity": "high"
+    },
+    "liability_cap": {
+      "category": "legal",
+      "description": "Seller limits maximum liability, often to purchase price or a fixed amount",
+      "typical_severity": "medium"
+    },
+    "termination_at_will": {
+      "category": "legal",
+      "description": "Seller can terminate account or service at any time without cause",
+      "typical_severity": "medium"
+    },
+    "jurisdiction_clause": {
+      "category": "legal",
+      "description": "Disputes must be resolved in a specific jurisdiction chosen by seller",
+      "typical_severity": "low"
+    },
+    "auto_renewal": {
+      "category": "legal",
+      "description": "Subscription or service automatically renews unless cancelled",
+      "typical_severity": "low"
+    },
+    "no_returns": {
+      "category": "returns",
+      "description": "Seller does not accept returns at all",
+      "typical_severity": "high"
+    },
+    "final_sale": {
+      "category": "returns",
+      "description": "All sales are final, no refunds or exchanges",
+      "typical_severity": "high"
+    },
+    "restocking_fee": {
+      "category": "returns",
+      "description": "A percentage fee is deducted from refund on returned items",
+      "typical_severity": "medium"
+    },
+    "return_shipping_fee": {
+      "category": "returns",
+      "description": "Buyer must pay shipping costs to return items",
+      "typical_severity": "medium"
+    },
+    "short_return_window": {
+      "category": "returns",
+      "description": "Return window is shorter than the industry standard 30 days",
+      "typical_severity": "low"
+    },
+    "exchange_only": {
+      "category": "returns",
+      "description": "Returns result in exchange or store credit only, no cash refund",
+      "typical_severity": "medium"
+    },
+    "store_credit_only": {
+      "category": "returns",
+      "description": "Refunds issued as store credit rather than original payment method",
+      "typical_severity": "medium"
+    },
+    "non_refundable_categories": {
+      "category": "returns",
+      "description": "Certain product categories are excluded from returns/refunds",
+      "typical_severity": "medium"
+    },
+    "no_refund_opened": {
+      "category": "returns",
+      "description": "Opened or used items cannot be returned for a refund",
+      "typical_severity": "high"
+    },
+    "no_refund": {
+      "category": "returns",
+      "description": "All sales are final, no refunds provided",
+      "typical_severity": "high"
+    },
+    "price_adjustment_clause": {
+      "category": "pricing",
+      "description": "Seller reserves right to adjust prices after purchase",
+      "typical_severity": "high"
+    },
+    "hidden_fees": {
+      "category": "pricing",
+      "description": "Additional fees not clearly disclosed upfront",
+      "typical_severity": "high"
+    },
+    "data_selling": {
+      "category": "privacy",
+      "description": "Seller sells or shares personal data with third parties for profit",
+      "typical_severity": "high"
+    },
+    "broad_data_collection": {
+      "category": "privacy",
+      "description": "Seller collects more personal data than necessary for the transaction",
+      "typical_severity": "medium"
+    },
+    "no_tracking": {
+      "category": "shipping",
+      "description": "No shipment tracking provided",
+      "typical_severity": "medium"
+    },
+    "long_handling_time": {
+      "category": "shipping",
+      "description": "Unusually long handling or processing time before shipment",
+      "typical_severity": "low"
+    }
+  }
+}

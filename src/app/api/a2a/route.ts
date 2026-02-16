@@ -107,11 +107,20 @@ async function handleMessageSend(params: Record<string, unknown>): Promise<Task>
     policyText || null,
   );
 
+  const flags = analysisResult.risk_factors.map((rf) => rf.factor);
+  const fetch_method = policyText
+    ? (sellerUrl ? "client_provided" : "text_input")
+    : "server_fetch";
+
+  const enriched = { ...analysisResult, flags, fetch_method };
+
   // Build human-readable summary
   const summaryLines: string[] = [];
   summaryLines.push(`Risk Level: ${analysisResult.risk_level.toUpperCase()}`);
   summaryLines.push(`Risk Score: ${analysisResult.risk_score}/10`);
   summaryLines.push(`Buyer Protection: ${analysisResult.buyer_protection_rating} (${analysisResult.buyer_protection_score}/100)`);
+  if (flags.length > 0) summaryLines.push(`Flags: ${flags.join(", ")}`);
+  summaryLines.push(`Fetch Method: ${fetch_method}`);
   if (analysisResult.summary) summaryLines.push(`\nSummary: ${analysisResult.summary}`);
 
   if (analysisResult.risk_factors.length > 0) {
@@ -142,7 +151,7 @@ async function handleMessageSend(params: Record<string, unknown>): Promise<Task>
         artifactId: generateArtifactId(),
         name: "policy_analysis",
         parts: [
-          { kind: "data", data: analysisResult as unknown as Record<string, unknown>, mimeType: "application/json" },
+          { kind: "data", data: enriched as unknown as Record<string, unknown>, mimeType: "application/json" },
           { kind: "text", text: summaryLines.join("\n") },
         ],
       },

@@ -141,6 +141,11 @@ export async function POST(req: NextRequest) {
         policyText || null,
       );
 
+      const flags = analysisResult.risk_factors.map((rf) => rf.factor);
+      const fetch_method = policyText
+        ? (sellerUrl ? "client_provided" : "text_input")
+        : "server_fetch";
+
       // Analysis succeeded — now settle the payment
       const settleResult = await server.processSettlement(
         result.paymentPayload,
@@ -173,7 +178,7 @@ export async function POST(req: NextRequest) {
             network: settleResult.network,
             payer: settleResult.payer,
           },
-          analysis: analysisResult,
+          analysis: { ...analysisResult, flags, fetch_method },
         },
         { headers },
       );

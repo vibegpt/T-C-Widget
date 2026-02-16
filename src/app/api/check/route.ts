@@ -10,7 +10,7 @@ const CORS_HEADERS = {
 };
 
 // Domain-level in-memory cache (24h TTL)
-const cache = new Map<string, { data: DeepAnalysisResult; expires: number }>();
+const cache = new Map<string, { data: DeepAnalysisResult & { flags: string[]; fetch_method: string }; expires: number }>();
 const CACHE_TTL = 24 * 60 * 60 * 1000;
 
 function getCacheKey(sellerUrl: string): string | null {
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     // Accept both "seller_url" and "url" for compatibility
     const seller_url = body.seller_url || body.url;
-    const policy_text = body.policy_text;
+    const policy_text = body.policy_text || body.text;
 
     if (!seller_url && !policy_text) {
       return NextResponse.json(
@@ -38,6 +38,11 @@ export async function POST(req: NextRequest) {
         { status: 400, headers: CORS_HEADERS },
       );
     }
+
+    // Determine fetch method
+    const fetch_method = policy_text
+      ? (seller_url ? "client_provided" : "text_input")
+      : "server_fetch";
 
     // Check cache (only for URL-based lookups without custom policy text)
     const cacheKey = seller_url ? getCacheKey(seller_url) : null;
@@ -53,12 +58,15 @@ export async function POST(req: NextRequest) {
       policy_text || null,
     );
 
+    const flags = result.risk_factors.map((rf) => rf.factor);
+    const response = { ...result, flags, fetch_method };
+
     // Cache the result
     if (cacheKey && !policy_text) {
-      cache.set(cacheKey, { data: result, expires: Date.now() + CACHE_TTL });
+      cache.set(cacheKey, { data: response, expires: Date.now() + CACHE_TTL });
     }
 
-    return NextResponse.json(result, { headers: CORS_HEADERS });
+    return NextResponse.json(response, { headers: CORS_HEADERS });
   } catch (err) {
     return NextResponse.json(
       { error: (err as Error).message },
