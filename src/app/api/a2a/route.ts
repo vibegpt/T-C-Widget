@@ -117,8 +117,9 @@ async function handleMessageSend(params: Record<string, unknown>): Promise<Task>
   // Build human-readable summary
   const summaryLines: string[] = [];
   summaryLines.push(`Risk Level: ${analysisResult.risk_level.toUpperCase()}`);
-  summaryLines.push(`Risk Score: ${analysisResult.risk_score}/10`);
-  summaryLines.push(`Buyer Protection: ${analysisResult.buyer_protection_rating} (${analysisResult.buyer_protection_score}/100)`);
+  summaryLines.push(`Risk Score: ${analysisResult.risk_score !== null ? `${analysisResult.risk_score}/10` : "N/A (insufficient data)"}`);
+  summaryLines.push(`Buyer Protection: ${analysisResult.buyer_protection_rating ?? "N/A"} (${analysisResult.buyer_protection_score !== null ? `${analysisResult.buyer_protection_score}/100` : "N/A"})`);
+  summaryLines.push(`Analysis Status: ${analysisResult.analysis_status} | Confidence: ${analysisResult.confidence}`);
   if (flags.length > 0) summaryLines.push(`Flags: ${flags.join(", ")}`);
   summaryLines.push(`Fetch Method: ${fetch_method}`);
   if (analysisResult.summary) summaryLines.push(`\nSummary: ${analysisResult.summary}`);

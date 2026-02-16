@@ -1,7 +1,7 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "updated": "2026-02-16",
-  "description": "PolicyCheck clause type registry. Agent developers write rules against these identifiers. Names are stable within a major version.",
+  "description": "PolicyCheck clause type registry. Agent developers write rules against these identifiers. Names are stable within a major version. v1.0.1: Added source-aware severity weighting — ToS boilerplate clauses (binding_arbitration, class_action_waiver, termination_at_will, liability_cap) are downgraded to low severity when found only in terms_of_service during URL-based analysis.",
   "clause_types": {
     "binding_arbitration": {
       "category": "legal",
