@@ -37,11 +37,11 @@ export async function POST(req: NextRequest) {
       if (seller_url) sellerDomain = new URL(seller_url).hostname;
     } catch { /* keep "unknown" */ }
 
-    // Build risk_factors_summary grouped by category
-    const riskByCategory: Record<string, number> = {};
-    for (const rf of result.risk_factors) {
-      const cat = rf.source || "other";
-      riskByCategory[cat] = (riskByCategory[cat] || 0) + 1;
+    // Build clauses_summary grouped by category
+    const clausesByCategory: Record<string, number> = {};
+    for (const c of result.clauses) {
+      const cat = c.category || "other";
+      clausesByCategory[cat] = (clausesByCategory[cat] || 0) + 1;
     }
 
     const now = new Date();
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     // Build signed assessment envelope
     const signedAssessment = {
-      version: "1.0",
+      version: "2.0",
       provider: "policycheck.tools",
       assessment_id: randomUUID(),
       timestamp: now.toISOString(),
@@ -58,14 +58,12 @@ export async function POST(req: NextRequest) {
         domain: sellerDomain,
         url: seller_url || null,
       },
-      flags: result.risk_factors.map((rf) => rf.factor),
-      risk_factors_summary: riskByCategory,
-      risk_score: result.risk_score,
-      risk_level: result.risk_level,
-      buyer_protection_score: result.buyer_protection_score,
-      buyer_protection_rating: result.buyer_protection_rating,
-      risk_factors: result.risk_factors,
+      flags: result.clauses.map((c) => c.id),
+      clauses_summary: clausesByCategory,
+      policies: result.policies,
+      clauses: result.clauses,
       positives: result.positives,
+      summary: result.summary,
       analysis_status: result.analysis_status,
       confidence: result.confidence,
     };

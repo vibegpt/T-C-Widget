@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
         policyText || null,
       );
 
-      const flags = analysisResult.risk_factors.map((rf) => rf.factor);
+      const flags = analysisResult.clauses.map((c) => c.id);
       const fetch_method = policyText
         ? (sellerUrl ? "client_provided" : "text_input")
         : "server_fetch";

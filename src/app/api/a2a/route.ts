@@ -107,7 +107,7 @@ async function handleMessageSend(params: Record<string, unknown>): Promise<Task>
     policyText || null,
   );
 
-  const flags = analysisResult.risk_factors.map((rf) => rf.factor);
+  const flags = analysisResult.clauses.map((c) => c.id);
   const fetch_method = policyText
     ? (sellerUrl ? "client_provided" : "text_input")
     : "server_fetch";
@@ -116,18 +116,24 @@ async function handleMessageSend(params: Record<string, unknown>): Promise<Task>
 
   // Build human-readable summary
   const summaryLines: string[] = [];
-  summaryLines.push(`Risk Level: ${analysisResult.risk_level.toUpperCase()}`);
-  summaryLines.push(`Risk Score: ${analysisResult.risk_score !== null ? `${analysisResult.risk_score}/10` : "N/A (insufficient data)"}`);
-  summaryLines.push(`Buyer Protection: ${analysisResult.buyer_protection_rating ?? "N/A"} (${analysisResult.buyer_protection_score !== null ? `${analysisResult.buyer_protection_score}/100` : "N/A"})`);
   summaryLines.push(`Analysis Status: ${analysisResult.analysis_status} | Confidence: ${analysisResult.confidence}`);
-  if (flags.length > 0) summaryLines.push(`Flags: ${flags.join(", ")}`);
+  if (flags.length > 0) summaryLines.push(`Detected Clauses: ${flags.join(", ")}`);
   summaryLines.push(`Fetch Method: ${fetch_method}`);
   if (analysisResult.summary) summaryLines.push(`\nSummary: ${analysisResult.summary}`);
 
-  if (analysisResult.risk_factors.length > 0) {
-    summaryLines.push("", "Risk Factors:");
-    for (const f of analysisResult.risk_factors) {
-      summaryLines.push(`  [${f.severity.toUpperCase()}] ${f.factor}: ${f.detail}`);
+  const nonBoilerplate = analysisResult.clauses.filter((c) => !c.is_standard_boilerplate);
+  if (nonBoilerplate.length > 0) {
+    summaryLines.push("", "Notable Clauses:");
+    for (const c of nonBoilerplate) {
+      summaryLines.push(`  [${c.category}] ${c.id}: ${c.description}`);
+    }
+  }
+
+  const boilerplate = analysisResult.clauses.filter((c) => c.is_standard_boilerplate);
+  if (boilerplate.length > 0) {
+    summaryLines.push("", "Standard Boilerplate Clauses:");
+    for (const c of boilerplate) {
+      summaryLines.push(`  [${c.category}] ${c.id}: ${c.description}`);
     }
   }
 

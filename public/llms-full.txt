@@ -2,7 +2,7 @@
 
 > Pre-purchase seller policy verification service for AI agents.
 
-PolicyCheck analyzes e-commerce seller policies (returns, shipping, warranty, terms of service, privacy) and returns structured risk assessments. It is designed as an intelligence provider — surfacing factual risk data without making binary go/no-go recommendations, preserving agent autonomy while enabling programmatic policy risk checks before autonomous purchases.
+PolicyCheck analyzes e-commerce seller policies (returns, shipping, warranty, terms of service, privacy) and returns structured factual data. It is designed as an intelligence provider — surfacing policy facts without making binary go/no-go recommendations, preserving agent autonomy while enabling programmatic policy checks before autonomous purchases.
 
 **Base URL:** `https://policycheck.tools`
 
@@ -10,13 +10,14 @@ PolicyCheck analyzes e-commerce seller policies (returns, shipping, warranty, te
 
 ## Overview
 
-When an AI agent is about to make a purchase autonomously, it faces a trust problem: how can it know whether the seller's policies are fair or predatory? PolicyCheck solves this by analyzing seller policy pages and returning structured, machine-readable risk data that agents can act on programmatically.
+When an AI agent is about to make a purchase autonomously, it faces a trust problem: how can it know whether the seller's policies are fair or predatory? PolicyCheck solves this by analyzing seller policy pages and returning structured, machine-readable data that agents can act on programmatically.
 
 Key design principles:
-- **Intelligence, not decisions:** PolicyCheck reports what it found; the agent decides what to do with it.
+- **Data, not decisions:** PolicyCheck reports what it found (return window, arbitration clause, free shipping threshold); the agent decides what to do with it.
 - **Independence:** Operates as a user-installed tool. Sellers never control their own assessments.
 - **Structured output:** Designed for programmatic consumption, not just human reading.
-- **Honest about limits:** Returns null scores and explicit status indicators when content cannot be extracted, rather than hallucinating scores.
+- **Honest about limits:** Returns empty policies and explicit status indicators when content cannot be extracted, rather than hallucinating data.
+- **Boilerplate labelling:** Standard legal clauses (arbitration, class action waiver) that appear in virtually every major retailer's ToS are marked `is_standard_boilerplate: true` so agents can filter signal from noise.
 
 ---
 
@@ -39,33 +40,65 @@ The main endpoint for seller policy analysis.
 **Response:**
 ```json
 {
-  "risk_score": 3.2,
-  "risk_level": "low",
-  "grade": "B+",
-  "buyer_protection_score": 78,
-  "flags": ["return_shipping_fee", "restocking_fee"],
-  "risk_factors": [
+  "seller_url": "https://example-store.com",
+  "policies": {
+    "returns": {
+      "summary": "30-day return window. Free returns for most items.",
+      "facts": {
+        "window_days": 30,
+        "return_shipping": "free",
+        "restocking_fee": false,
+        "refund_method": "original_payment"
+      }
+    },
+    "shipping": {
+      "summary": "Free shipping on orders over $35. Standard delivery 5-8 business days.",
+      "facts": {
+        "free_threshold_usd": 35,
+        "estimated_days_min": 5,
+        "estimated_days_max": 8,
+        "tracking_provided": true
+      }
+    },
+    "legal": {
+      "summary": "Standard arbitration clause. Class action waiver present. Governed by Minnesota law.",
+      "facts": {
+        "arbitration": true,
+        "class_action_waiver": true,
+        "jurisdiction": "Minnesota"
+      }
+    }
+  },
+  "clauses": [
     {
-      "factor": "return_shipping_fee",
-      "severity": "medium",
-      "detail": "Customer pays return shipping costs",
-      "source": "returns",
+      "id": "binding_arbitration",
+      "category": "legal",
+      "description": "Mandatory binding arbitration for all disputes",
+      "found_in": "terms_of_service",
+      "is_standard_boilerplate": true
+    },
+    {
+      "id": "return_shipping_fee",
+      "category": "returns",
+      "description": "Customer pays return shipping on certain items",
       "found_in": "return_policy",
-      "severity_note": null
+      "is_standard_boilerplate": false
     }
   ],
-  "positives": ["30-day return window", "Free exchanges"],
-  "summary": "This seller has generally fair policies with minor friction points around return shipping costs.",
+  "flags": ["binding_arbitration", "return_shipping_fee"],
+  "positives": ["30-day return window", "Free standard shipping over $35"],
+  "summary": "3 of 4 policy categories analyzed. 2 clauses detected. Returns are generally favorable with a 30-day window.",
   "fetch_method": "server_fetch",
   "analysis_status": "complete",
-  "confidence": "high"
+  "confidence": "high",
+  "analyzed_at": "2026-02-22T10:00:00.000Z"
 }
 ```
 
 **analysis_status values:**
 - `"complete"` — PolicyCheck successfully fetched and analyzed one or more policy pages
 - `"partial"` — Some pages fetched, some failed
-- `"no_content"` — Could not extract policy content (often due to JavaScript rendering); score will be null
+- `"no_content"` — Could not extract policy content (often due to JavaScript rendering)
 - `"text_provided"` — Caller provided raw text directly
 
 **fetch_method values:**
@@ -129,13 +162,19 @@ Returns the versioned registry of all detectable clause types. Stable identifier
 **Response:**
 ```json
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "clauses": [
     {
       "id": "return_shipping_fee",
       "category": "returns",
       "description": "Customer bears cost of return shipping",
-      "typical_severity": "medium"
+      "is_standard_boilerplate": false
+    },
+    {
+      "id": "binding_arbitration",
+      "category": "legal",
+      "description": "Mandatory binding arbitration for disputes — no court litigation",
+      "is_standard_boilerplate": true
     },
     ...
   ]
@@ -148,82 +187,94 @@ Returns the versioned registry of all detectable clause types. Stable identifier
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `risk_score` | number \| null | 0–10 scale (0 = no risk, 10 = extreme risk). Null if no content found. |
-| `risk_level` | string \| null | "low", "medium", "high", "critical", or null |
-| `grade` | string \| null | Letter grade A+ through F |
-| `buyer_protection_score` | number \| null | 0–100 inverse of risk score |
-| `flags` | string[] | Flat array of detected clause type identifiers from the clause registry |
-| `risk_factors` | array | Detailed findings (see below) |
+| `policies` | object | Per-category structured facts (see below) |
+| `clauses` | array | Detected clause list (see below) |
+| `flags` | string[] | Flat array of detected clause IDs (convenience field) |
 | `positives` | string[] | Buyer-friendly policy findings |
-| `summary` | string | Human-readable summary |
+| `summary` | string | Human-readable factual summary |
 | `fetch_method` | string | How the policy content was obtained |
 | `analysis_status` | string | Reliability indicator — always check this |
 | `confidence` | string | "high", "medium", "low", or "none" |
+| `analyzed_at` | string | ISO 8601 timestamp |
 
-### risk_factors array items
+### policies object
+
+Each category is only present if content was found for it. All fact values may be null if not stated in the policy text.
+
+**policies.returns.facts:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `window_days` | number \| null | Return window in days |
+| `return_shipping` | "free" \| "customer_pays" \| "unknown" \| null | Who pays return shipping |
+| `restocking_fee` | boolean \| null | Whether a restocking fee is charged |
+| `refund_method` | "original_payment" \| "store_credit" \| "exchange_only" \| "unknown" \| null | How refunds are issued |
+
+**policies.shipping.facts:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `free_threshold_usd` | number \| null | Minimum order for free shipping |
+| `estimated_days_min` | number \| null | Minimum delivery days |
+| `estimated_days_max` | number \| null | Maximum delivery days |
+| `tracking_provided` | boolean \| null | Whether tracking is provided |
+
+**policies.legal.facts:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `arbitration` | boolean \| null | Whether binding arbitration is required |
+| `class_action_waiver` | boolean \| null | Whether class action is waived |
+| `jurisdiction` | string \| null | Governing jurisdiction |
+
+**policies.pricing.facts:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `auto_renews` | boolean \| null | Whether subscriptions auto-renew |
+
+**policies.privacy.facts:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `data_sold` | boolean \| null | Whether user data is sold to third parties |
+
+### clauses array items
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `factor` | string | Clause type identifier (matches clause registry) |
-| `severity` | string | "low", "medium", or "high" |
-| `detail` | string | Plain language explanation of the finding |
-| `source` | string | Policy category: "returns", "shipping", "legal", "pricing", "privacy" |
-| `found_in` | string | Specific page: "return_policy", "terms_of_service", "shipping_policy", etc. |
-| `severity_note` | string \| null | e.g., "standard_tos_boilerplate" when severity was discounted |
-
----
-
-## Scoring System
-
-**Severity weights:**
-- High: 3.0 points
-- Medium: 1.5 points
-- Low: 0.5 points
-
-**Source-aware discounting:** Clauses found in terms_of_service pages that match known standard legal boilerplate (e.g., binding arbitration, liability caps found in the ToS of most major retailers) receive reduced severity weight to prevent false positives. The `severity_note: "standard_tos_boilerplate"` field indicates when this discount was applied.
-
-**Grade scale:**
-- A+/A: 0–1.5 risk score
-- B+/B: 1.5–3.5
-- C+/C: 3.5–5.5
-- D: 5.5–7.5
-- F: 7.5+
-
-`buyer_protection_score` = 100 − (risk_score × 10), clamped to 0–100.
+| `id` | string | Clause type identifier (matches clause registry) |
+| `category` | string | Policy category: "returns", "shipping", "legal", "pricing", "privacy" |
+| `description` | string | Plain language description of the clause |
+| `found_in` | string | Specific page: "return_policy", "terms_of_service", "shipping_policy", "privacy_policy", "unknown" |
+| `is_standard_boilerplate` | boolean | True for clauses common in virtually all major retailer policies (arbitration, class action waiver, liability cap, jurisdiction, termination at will). False for unusual restrictions affecting consumers. |
 
 ---
 
 ## Clause Registry (Current)
 
-Key detectable clause types include:
+Key detectable clause types:
 
 **Returns category:**
-- `no_returns` — No return policy offered
+- `no_refund` — All sales final
+- `no_refund_opened` — Opened items cannot be returned
 - `return_shipping_fee` — Customer pays return shipping
 - `restocking_fee` — Restocking fee charged on returns
-- `short_return_window` — Return window under 14 days
+- `short_return_window` — Return window under 30 days
 - `store_credit_only` — Refunds only as store credit
-- `final_sale` — Items marked as final sale / no returns
+- `final_sale` — Items marked as final sale
+- `exchange_only` — Exchanges only, no cash refunds
 
-**Shipping category:**
-- `slow_shipping` — Shipping times over 14 days
-- `no_tracking` — No tracking provided
-- `shipping_not_refundable` — Shipping charges non-refundable
-
-**Legal category:**
-- `binding_arbitration` — Mandatory arbitration clause
-- `class_action_waiver` — Class action lawsuit waiver
-- `liability_cap` — Limitation of seller liability
-- `jurisdiction_clause` — Specific jurisdiction requirement
+**Legal category (most are standard boilerplate):**
+- `binding_arbitration` — Mandatory arbitration clause *(standard boilerplate)*
+- `class_action_waiver` — Class action lawsuit waiver *(standard boilerplate)*
+- `liability_cap` — Limitation of seller liability *(standard boilerplate)*
+- `jurisdiction_clause` — Specific jurisdiction requirement *(standard boilerplate)*
+- `termination_at_will` — Can terminate account without cause *(standard boilerplate)*
 
 **Pricing category:**
-- `price_change_warning` — Prices may change after order
+- `auto_renewal` — Automatic subscription renewal
+- `price_adjustment_clause` — Prices may change after order
 - `hidden_fees` — Fees disclosed only at checkout
-- `subscription_auto_renew` — Automatic subscription renewal
 
 **Privacy category:**
-- `data_sold_to_third_parties` — User data sold or shared commercially
-- `no_data_deletion` — No right to request data deletion
+- `data_selling` — User data sold or shared commercially
+- `broad_data_collection` — Collects more data than needed
 
 ---
 
@@ -232,7 +283,7 @@ Key detectable clause types include:
 ### Pattern 1: Pre-purchase check (recommended)
 
 ```javascript
-async function safeToPurchase(sellerUrl, userPreferences) {
+async function shouldProceed(sellerUrl, userPreferences) {
   const res = await fetch('https://policycheck.tools/api/check', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -245,16 +296,17 @@ async function safeToPurchase(sellerUrl, userPreferences) {
     return { proceed: false, reason: 'Could not verify seller policies' };
   }
 
-  // Check dealbreaker flags
+  // Check dealbreaker flags (agent decides, not PolicyCheck)
   const dealbreakers = userPreferences.dealbreakers || [];
   const flagged = analysis.flags.filter(f => dealbreakers.includes(f));
   if (flagged.length > 0) {
     return { proceed: false, reason: `Policy flags: ${flagged.join(', ')}` };
   }
 
-  // Check risk score threshold
-  if (analysis.risk_score > userPreferences.maxRiskScore) {
-    return { proceed: false, reason: `Risk score ${analysis.risk_score} exceeds threshold` };
+  // Use structured facts for nuanced decisions
+  const returns = analysis.policies.returns?.facts;
+  if (returns?.window_days !== null && returns?.window_days < userPreferences.minReturnDays) {
+    return { proceed: false, reason: `Return window ${returns.window_days} days < minimum ${userPreferences.minReturnDays}` };
   }
 
   return { proceed: true, analysis };
@@ -310,7 +362,7 @@ PolicyCheck supports cryptographically signed seller policy assessments. Agents 
 
 ### POST /api/v1/signed-assessment — Signed Seller Assessment
 
-Returns an Ed25519-signed envelope containing the full risk assessment.
+Returns an Ed25519-signed envelope containing the full policy assessment.
 
 **Request body:**
 ```json
@@ -325,7 +377,7 @@ Also accepts: `url`, `policy_text`, `text`.
 ```json
 {
   "signed_assessment": {
-    "version": "1.0",
+    "version": "2.0",
     "provider": "policycheck.tools",
     "assessment_id": "550e8400-e29b-41d4-a716-446655440000",
     "timestamp": "2026-02-22T10:00:00.000Z",
@@ -334,14 +386,12 @@ Also accepts: `url`, `policy_text`, `text`.
       "domain": "amazon.com",
       "url": "https://amazon.com"
     },
-    "flags": ["return_shipping_fee"],
-    "risk_factors_summary": { "returns": 1 },
-    "risk_score": 0.5,
-    "risk_level": "low",
-    "buyer_protection_score": 95,
-    "buyer_protection_rating": "A+",
-    "risk_factors": [...],
-    "positives": [...],
+    "flags": ["return_shipping_fee", "binding_arbitration"],
+    "clauses_summary": { "returns": 1, "legal": 1 },
+    "policies": { ... },
+    "clauses": [ ... ],
+    "positives": [ ... ],
+    "summary": "...",
     "analysis_status": "complete",
     "confidence": "high"
   },
@@ -415,12 +465,14 @@ Returns the Ed25519 public key in JWKS format for independent signature verifica
 
 ## Important Notes
 
-1. **PolicyCheck is an intelligence provider, not a gatekeeper.** It does not make purchase decisions — it provides risk data. The calling agent decides whether to proceed.
+1. **PolicyCheck is an intelligence provider, not a gatekeeper.** It does not make purchase decisions — it provides policy facts. The calling agent decides whether to proceed.
 
-2. **Always check `analysis_status` before using scores.** If `analysis_status === "no_content"`, the `risk_score` will be null and should not be used for decisions. Fall back to browser-based analysis or flag for human review.
+2. **Always check `analysis_status` before using results.** If `analysis_status === "no_content"`, policies will be empty and clauses will be an empty array.
 
 3. **SPA limitations:** Sites that render policies entirely via JavaScript may return `no_content` via server fetch. Use the `policy_text` input field to supply rendered content in these cases.
 
-4. **Not legal advice.** PolicyCheck identifies policy clauses programmatically. It does not provide legal interpretation or advice.
+4. **Boilerplate vs. unusual clauses:** `is_standard_boilerplate: true` means the clause appears in virtually every major retailer's policies (e.g., binding arbitration, jurisdiction clause). Agents should weight `is_standard_boilerplate: false` clauses more heavily when making decisions.
 
-5. **Seller independence:** Sellers have no access to or control over their PolicyCheck assessments. This is by design.
+5. **Not legal advice.** PolicyCheck identifies policy clauses programmatically. It does not provide legal interpretation or advice.
+
+6. **Seller independence:** Sellers have no access to or control over their PolicyCheck assessments. This is by design.

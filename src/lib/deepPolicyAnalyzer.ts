@@ -2,22 +2,57 @@ import { analyseText, fetchPolicyFromUrl } from "./policy-analysis";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export type RiskFactor = {
-  factor: string;
-  severity: "high" | "medium" | "low";
-  detail: string;
-  source: string;
-  found_in?: string;
-  severity_note?: string;
+export type ReturnsFacts = {
+  window_days: number | null;
+  return_shipping: "free" | "customer_pays" | "unknown" | null;
+  restocking_fee: boolean | null;
+  refund_method: "original_payment" | "store_credit" | "exchange_only" | "unknown" | null;
+};
+
+export type ShippingFacts = {
+  free_threshold_usd: number | null;
+  estimated_days_min: number | null;
+  estimated_days_max: number | null;
+  tracking_provided: boolean | null;
+};
+
+export type LegalFacts = {
+  arbitration: boolean | null;
+  class_action_waiver: boolean | null;
+  jurisdiction: string | null;
+};
+
+export type PricingFacts = {
+  auto_renews: boolean | null;
+};
+
+export type PrivacyFacts = {
+  data_sold: boolean | null;
+};
+
+export type PolicyCategory<T> = {
+  summary: string;
+  facts: T;
+};
+
+export type Clause = {
+  id: string;
+  category: string;
+  description: string;
+  found_in: string;
+  is_standard_boilerplate: boolean;
 };
 
 export type DeepAnalysisResult = {
   seller_url: string;
-  risk_score: number | null;
-  risk_level: string;
-  buyer_protection_rating: string | null;
-  buyer_protection_score: number | null;
-  risk_factors: RiskFactor[];
+  policies: {
+    returns?: PolicyCategory<ReturnsFacts>;
+    shipping?: PolicyCategory<ShippingFacts>;
+    legal?: PolicyCategory<LegalFacts>;
+    pricing?: PolicyCategory<PricingFacts>;
+    privacy?: PolicyCategory<PrivacyFacts>;
+  };
+  clauses: Clause[];
   positives: string[];
   summary: string;
   analyzed_at: string;
@@ -84,57 +119,15 @@ async function discoverPolicies(sellerUrl: string): Promise<FetchResults> {
   };
 }
 
-// ── Source-aware severity weighting ──────────────────────────────────────────
+// ── Known boilerplate clause IDs ─────────────────────────────────────────────
 
-const TOS_BOILERPLATE_CLAUSES = new Set([
+const STANDARD_BOILERPLATE_CLAUSES = new Set([
   "binding_arbitration",
   "class_action_waiver",
   "termination_at_will",
   "liability_cap",
+  "jurisdiction_clause",
 ]);
-
-const SEVERITY_WEIGHTS: Record<string, number> = { high: 2.0, medium: 1.0, low: 0.5 };
-
-function calculateRiskScore(factors: RiskFactor[], hasUrlContext: boolean): number {
-  let score = 0;
-  for (const f of factors) {
-    let effectiveSeverity = f.severity;
-
-    // Downgrade ToS boilerplate clauses when found only in terms_of_service
-    if (
-      hasUrlContext &&
-      TOS_BOILERPLATE_CLAUSES.has(f.factor) &&
-      f.found_in === "terms_of_service"
-    ) {
-      effectiveSeverity = "low";
-      f.severity_note = "standard_tos_boilerplate";
-    }
-
-    score += SEVERITY_WEIGHTS[effectiveSeverity] || 0;
-  }
-  return Math.min(10, Math.round(score * 10) / 10);
-}
-
-function getRiskLevel(score: number | null): string {
-  if (score === null) return "unknown";
-  if (score <= 2) return "low";
-  if (score <= 5) return "medium";
-  if (score <= 7.5) return "high";
-  return "critical";
-}
-
-function getLetterGrade(score: number | null): string | null {
-  if (score === null) return null;
-  if (score <= 1) return "A+";
-  if (score <= 2) return "A";
-  if (score <= 3) return "B+";
-  if (score <= 4) return "B";
-  if (score <= 5) return "C+";
-  if (score <= 6) return "C";
-  if (score <= 7) return "D+";
-  if (score <= 8) return "D";
-  return "F";
-}
 
 // ── Analysis status + confidence ─────────────────────────────────────────────
 
@@ -166,16 +159,46 @@ function getStatusAndConfidence(
 // ── LLM prompt ───────────────────────────────────────────────────────────────
 
 function buildPrompt(policyText: string): string {
-  return `Analyze the following seller policy text. Identify ALL consumer-impacting clauses and positive signals.
+  return `Analyze the following seller policy text. Extract structured facts about each policy category and list detectable clause types.
 
 The text below may contain labeled sections from different policy pages (e.g., RETURNS POLICY, TERMS POLICY). Pay attention to which section each clause was found in.
 
 POLICY TEXT:
 ${policyText.substring(0, 15000)}${policyText.length > 15000 ? "\n...(truncated)" : ""}
 
-DETECT THESE CLAUSE TYPES (use these exact factor names and source categories):
+EXTRACT POLICY FACTS FOR EACH SECTION PRESENT:
 
-Returns & Refunds (source: "returns"):
+For "returns" (if a returns/refund policy is present):
+- window_days: integer (days), or null if not stated
+- return_shipping: "free", "customer_pays", or "unknown"
+- restocking_fee: true/false/null
+- refund_method: "original_payment", "store_credit", "exchange_only", or "unknown"
+- summary: 1-2 sentence factual description
+
+For "shipping" (if a shipping policy is present):
+- free_threshold_usd: number or null (dollar amount for free shipping, e.g. 35)
+- estimated_days_min: integer or null
+- estimated_days_max: integer or null
+- tracking_provided: true/false/null
+- summary: 1-2 sentence factual description
+
+For "legal" (if terms of service is present):
+- arbitration: true/false/null
+- class_action_waiver: true/false/null
+- jurisdiction: string (e.g. "California") or null
+- summary: 1-2 sentence factual description
+
+For "pricing" (if pricing/billing terms are present):
+- auto_renews: true/false/null
+- summary: 1-2 sentence factual description
+
+For "privacy" (if a privacy policy is present):
+- data_sold: true/false/null (whether data is sold or shared commercially)
+- summary: 1-2 sentence factual description
+
+DETECT THESE CLAUSE TYPES (use these exact IDs):
+
+Returns & Refunds (category: "returns"):
 - return_shipping_fee — buyer pays return shipping costs
 - restocking_fee — percentage or flat fee deducted from refund
 - short_return_window — return window shorter than 30 days
@@ -185,52 +208,56 @@ Returns & Refunds (source: "returns"):
 - exchange_only — exchanges only, no cash refunds
 - no_refund — all sales final, no refunds at all
 
-Legal & Dispute (source: "legal"):
+Legal & Dispute (category: "legal"):
 - binding_arbitration — mandatory binding arbitration for disputes
 - class_action_waiver — waives right to class action lawsuits
 - liability_cap — seller liability capped at purchase price or less
 - jurisdiction_clause — disputes governed by specific state/country law
 - termination_at_will — seller can terminate account without cause or notice
 
-Pricing & Billing (source: "pricing"):
+Pricing & Billing (category: "pricing"):
 - auto_renewal — subscriptions or services auto-renew
 - price_adjustment_clause — seller can change prices after order placement
 - hidden_fees — undisclosed or non-obvious fees
 
-Privacy & Data (source: "privacy"):
+Privacy & Data (category: "privacy"):
 - data_selling — shares or sells personal data to third parties
 - broad_data_collection — collects more data than needed for service
 
-SEVERITY RULES:
-- "high": Significantly harms consumer rights (binding_arbitration, class_action_waiver, no_refund, no_refund_opened, final_sale, hidden_fees, termination_at_will)
-- "medium": Notable limitation (restocking_fee, store_credit_only, exchange_only, liability_cap, auto_renewal, price_adjustment_clause, data_selling)
-- "low": Minor concern (return_shipping_fee, short_return_window, jurisdiction_clause, broad_data_collection)
-
 FOUND_IN FIELD:
-For each risk factor, include a "found_in" field indicating which policy page section the clause was found in. Use one of:
-- "return_policy" — found in returns/refund policy section
-- "shipping_policy" — found in shipping policy section
-- "terms_of_service" — found in terms of service/legal section
-- "privacy_policy" — found in privacy policy section
-- "unknown" — if the section is unclear or text is unlabeled
+For each clause, set "found_in" to one of:
+- "return_policy", "shipping_policy", "terms_of_service", "privacy_policy", "unknown"
+
+IS_STANDARD_BOILERPLATE:
+Set is_standard_boilerplate: true for clauses that appear in virtually all major retailer policies and represent standard legal language rather than unusual restrictions. These include: binding_arbitration, class_action_waiver, liability_cap, jurisdiction_clause, termination_at_will.
+Set is_standard_boilerplate: false for clauses that represent unusual restrictions affecting consumers (e.g., no_refund, final_sale, store_credit_only, restocking_fee, short_return_window).
 
 POSITIVE SIGNALS TO DETECT:
 Identify consumer-friendly policies such as: free returns, free shipping, extended return window (60+ days), money-back guarantee, price match guarantee, satisfaction guarantee, easy cancellation, no restocking fee, hassle-free exchanges, lifetime warranty, etc.
 
 SUMMARY RULES:
 Write a 2-3 sentence FACTUAL summary. State what was analyzed, what was found, and key metrics.
-- DO say: "3 of 4 policy categories analyzed. Return shipping fee detected. 14-day return window (industry average: 30 days)."
-- DO NOT say: "safe to buy", "don't buy", "we recommend", "consider finding an alternative", "proceed with caution"
+- DO say: "3 of 4 policy categories analyzed. Return shipping fee detected. 14-day return window."
+- DO NOT say: "safe to buy", "don't buy", "we recommend", "proceed with caution"
 - Present facts and classifications only. No purchase advice.
 
 Return ONLY valid JSON with this structure:
 {
-  "risk_factors": [
-    { "factor": "factor_name", "severity": "high|medium|low", "detail": "factual description", "source": "returns|legal|pricing|privacy", "found_in": "return_policy|shipping_policy|terms_of_service|privacy_policy|unknown" }
+  "policies": {
+    "returns": { "summary": "...", "facts": { "window_days": 30, "return_shipping": "free", "restocking_fee": false, "refund_method": "original_payment" } },
+    "shipping": { "summary": "...", "facts": { "free_threshold_usd": 35, "estimated_days_min": 5, "estimated_days_max": 8, "tracking_provided": true } },
+    "legal": { "summary": "...", "facts": { "arbitration": true, "class_action_waiver": false, "jurisdiction": "California" } },
+    "pricing": { "summary": "...", "facts": { "auto_renews": false } },
+    "privacy": { "summary": "...", "facts": { "data_sold": false } }
+  },
+  "clauses": [
+    { "id": "binding_arbitration", "category": "legal", "description": "Mandatory binding arbitration for all disputes", "found_in": "terms_of_service", "is_standard_boilerplate": true }
   ],
   "positives": ["factual description of each positive policy"],
   "summary": "factual summary only"
-}`;
+}
+
+Only include policy categories that were actually present in the text. Omit categories with no content.`;
 }
 
 // ── LLM call ─────────────────────────────────────────────────────────────────
@@ -266,27 +293,22 @@ function regexFallback(
   fetchResults: FetchResults | null,
   isTextProvided: boolean,
 ): DeepAnalysisResult {
-  const factors: RiskFactor[] = [];
+  const clauses: Clause[] = [];
 
-  if (regex.risks.arbitration) factors.push({ factor: "binding_arbitration", severity: "high", detail: "Binding arbitration required for all disputes", source: "legal" });
-  if (regex.risks.classActionWaiver) factors.push({ factor: "class_action_waiver", severity: "high", detail: "Class action lawsuits are waived", source: "legal" });
-  if (regex.risks.liabilityCap) factors.push({ factor: "liability_cap", severity: "medium", detail: `Liability capped at $${Number(regex.risks.liabilityCap).toLocaleString()}`, source: "legal" });
-  if (regex.risks.terminationAtWill) factors.push({ factor: "termination_at_will", severity: "high", detail: "Account can be terminated without notice", source: "legal" });
-  if (regex.risks.autoRenewal) factors.push({ factor: "auto_renewal", severity: "medium", detail: "Automatic renewal clause detected", source: "pricing" });
-  if (regex.risks.noRefunds) factors.push({ factor: "no_refund", severity: "high", detail: "All sales are final — no refunds", source: "returns" });
-  if (regex.risks.restockingFee) factors.push({ factor: "restocking_fee", severity: "medium", detail: `Restocking fee: ${regex.risks.restockingFee}`, source: "returns" });
+  if (regex.risks.arbitration) clauses.push({ id: "binding_arbitration", category: "legal", description: "Binding arbitration required for all disputes", found_in: "unknown", is_standard_boilerplate: true });
+  if (regex.risks.classActionWaiver) clauses.push({ id: "class_action_waiver", category: "legal", description: "Class action lawsuits are waived", found_in: "unknown", is_standard_boilerplate: true });
+  if (regex.risks.liabilityCap) clauses.push({ id: "liability_cap", category: "legal", description: `Liability capped at $${Number(regex.risks.liabilityCap).toLocaleString()}`, found_in: "unknown", is_standard_boilerplate: true });
+  if (regex.risks.terminationAtWill) clauses.push({ id: "termination_at_will", category: "legal", description: "Account can be terminated without notice", found_in: "unknown", is_standard_boilerplate: true });
+  if (regex.risks.autoRenewal) clauses.push({ id: "auto_renewal", category: "pricing", description: "Automatic renewal clause detected", found_in: "unknown", is_standard_boilerplate: false });
+  if (regex.risks.noRefunds) clauses.push({ id: "no_refund", category: "returns", description: "All sales are final — no refunds", found_in: "unknown", is_standard_boilerplate: false });
+  if (regex.risks.restockingFee) clauses.push({ id: "restocking_fee", category: "returns", description: `Restocking fee: ${regex.risks.restockingFee}`, found_in: "unknown", is_standard_boilerplate: false });
 
-  const hasUrlContext = !isTextProvided && !!fetchResults;
-  const riskScore = calculateRiskScore(factors, hasUrlContext);
   const { analysis_status, confidence } = getStatusAndConfidence(fetchResults, isTextProvided);
 
   return {
     seller_url: sellerUrl,
-    risk_score: riskScore,
-    risk_level: getRiskLevel(riskScore),
-    buyer_protection_rating: getLetterGrade(riskScore),
-    buyer_protection_score: Math.max(0, Math.min(100, Math.round(100 - riskScore * 10))),
-    risk_factors: factors,
+    policies: {},
+    clauses,
     positives: [],
     summary: regex.summary,
     analyzed_at: new Date().toISOString(),
@@ -294,6 +316,24 @@ function regexFallback(
     analysis_status,
     confidence,
   };
+}
+
+// ── Normalize LLM clauses ─────────────────────────────────────────────────────
+
+function normalizeClauses(rawClauses: unknown[]): Clause[] {
+  const validFoundIn = new Set(["return_policy", "shipping_policy", "terms_of_service", "privacy_policy", "unknown"]);
+  return rawClauses
+    .filter((c): c is Record<string, unknown> => typeof c === "object" && c !== null && typeof (c as Record<string, unknown>).id === "string")
+    .map((c) => ({
+      id: c.id as string,
+      category: (c.category as string) || "other",
+      description: (c.description as string) || "",
+      found_in: validFoundIn.has(c.found_in as string) ? (c.found_in as string) : "unknown",
+      // Trust LLM's is_standard_boilerplate, but always mark known boilerplate IDs as true
+      is_standard_boilerplate: STANDARD_BOILERPLATE_CLAUSES.has(c.id as string)
+        ? true
+        : Boolean(c.is_standard_boilerplate),
+    }));
 }
 
 // ── Main entry point ─────────────────────────────────────────────────────────
@@ -316,11 +356,8 @@ export async function deepAnalyze(
     const { analysis_status, confidence } = getStatusAndConfidence(fetchResults, isTextProvided);
     return {
       seller_url: sellerUrl,
-      risk_score: null,
-      risk_level: "unknown",
-      buyer_protection_rating: null,
-      buyer_protection_score: null,
-      risk_factors: [],
+      policies: {},
+      clauses: [],
       positives: [],
       summary: "Unable to extract policy content from this site. The site may use JavaScript rendering or bot protection that prevents server-side analysis. Use the PolicyCheck Chrome extension for browser-based analysis, or provide policy_text directly.",
       analyzed_at: new Date().toISOString(),
@@ -338,47 +375,90 @@ export async function deepAnalyze(
     const prompt = buildPrompt(text);
     const llm = await callLLM(prompt);
 
-    const rawFactors = (llm.risk_factors as RiskFactor[]) || [];
+    const rawPolicies = (llm.policies as Record<string, unknown>) || {};
+    const rawClauses = (llm.clauses as unknown[]) || [];
     const positives = (llm.positives as string[]) || [];
     const llmSummary = (llm.summary as string) || "";
 
-    // Validate and normalize factors
-    const validSeverities = new Set(["high", "medium", "low"]);
-    const validFoundIn = new Set(["return_policy", "shipping_policy", "terms_of_service", "privacy_policy", "unknown"]);
-    const factors: RiskFactor[] = rawFactors
-      .filter((f) => f.factor && f.detail && validSeverities.has(f.severity))
-      .map((f) => ({
-        factor: f.factor,
-        severity: f.severity,
-        detail: f.detail,
-        source: f.source || "other",
-        found_in: validFoundIn.has(f.found_in as string) ? f.found_in : "unknown",
-      }));
+    const clauses = normalizeClauses(rawClauses);
 
-    // Deterministic scoring with source-aware severity weighting
-    const hasUrlContext = !isTextProvided && !!fetchResults;
-    const riskScore = calculateRiskScore(factors, hasUrlContext);
-    const riskLevel = getRiskLevel(riskScore);
-    const grade = getLetterGrade(riskScore);
-    const protectionScore = Math.max(0, Math.min(100, Math.round(100 - riskScore * 10)));
+    // Build policies object — only include keys the LLM returned
+    const policies: DeepAnalysisResult["policies"] = {};
+
+    if (rawPolicies.returns && typeof rawPolicies.returns === "object") {
+      const r = rawPolicies.returns as Record<string, unknown>;
+      const facts = (r.facts as Record<string, unknown>) || {};
+      policies.returns = {
+        summary: (r.summary as string) || "",
+        facts: {
+          window_days: (facts.window_days as number) ?? null,
+          return_shipping: (facts.return_shipping as ReturnsFacts["return_shipping"]) ?? null,
+          restocking_fee: (facts.restocking_fee as boolean) ?? null,
+          refund_method: (facts.refund_method as ReturnsFacts["refund_method"]) ?? null,
+        },
+      };
+    }
+
+    if (rawPolicies.shipping && typeof rawPolicies.shipping === "object") {
+      const s = rawPolicies.shipping as Record<string, unknown>;
+      const facts = (s.facts as Record<string, unknown>) || {};
+      policies.shipping = {
+        summary: (s.summary as string) || "",
+        facts: {
+          free_threshold_usd: (facts.free_threshold_usd as number) ?? null,
+          estimated_days_min: (facts.estimated_days_min as number) ?? null,
+          estimated_days_max: (facts.estimated_days_max as number) ?? null,
+          tracking_provided: (facts.tracking_provided as boolean) ?? null,
+        },
+      };
+    }
+
+    if (rawPolicies.legal && typeof rawPolicies.legal === "object") {
+      const l = rawPolicies.legal as Record<string, unknown>;
+      const facts = (l.facts as Record<string, unknown>) || {};
+      policies.legal = {
+        summary: (l.summary as string) || "",
+        facts: {
+          arbitration: (facts.arbitration as boolean) ?? null,
+          class_action_waiver: (facts.class_action_waiver as boolean) ?? null,
+          jurisdiction: (facts.jurisdiction as string) ?? null,
+        },
+      };
+    }
+
+    if (rawPolicies.pricing && typeof rawPolicies.pricing === "object") {
+      const p = rawPolicies.pricing as Record<string, unknown>;
+      const facts = (p.facts as Record<string, unknown>) || {};
+      policies.pricing = {
+        summary: (p.summary as string) || "",
+        facts: {
+          auto_renews: (facts.auto_renews as boolean) ?? null,
+        },
+      };
+    }
+
+    if (rawPolicies.privacy && typeof rawPolicies.privacy === "object") {
+      const p = rawPolicies.privacy as Record<string, unknown>;
+      const facts = (p.facts as Record<string, unknown>) || {};
+      policies.privacy = {
+        summary: (p.summary as string) || "",
+        facts: {
+          data_sold: (facts.data_sold as boolean) ?? null,
+        },
+      };
+    }
 
     const { analysis_status, confidence } = getStatusAndConfidence(fetchResults, isTextProvided);
 
-    // Build factual summary
-    const sourcesAnalyzed = new Set(factors.map((f) => f.source));
-    const policyCount = sourcesAnalyzed.size || 1;
-    const highCount = factors.filter((f) => f.severity === "high" && !f.severity_note).length;
+    const policyCategoryCount = Object.keys(policies).length;
     const summary =
       llmSummary ||
-      `${policyCount} policy categories analyzed. ${factors.length} risk factor(s) identified${highCount > 0 ? `, ${highCount} high severity` : ""}. Buyer protection score: ${protectionScore}/100.`;
+      `${policyCategoryCount} policy categories analyzed. ${clauses.length} clause(s) detected.`;
 
     return {
       seller_url: sellerUrl,
-      risk_score: riskScore,
-      risk_level: riskLevel,
-      buyer_protection_rating: grade,
-      buyer_protection_score: protectionScore,
-      risk_factors: factors,
+      policies,
+      clauses,
       positives,
       summary,
       analyzed_at: new Date().toISOString(),

@@ -1,17 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import type { Metadata } from "next";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type RiskFactor = {
-  factor: string;
-  severity: "high" | "medium" | "low";
-  detail: string;
-  source: string;
-  found_in?: string;
-  severity_note?: string;
+type Clause = {
+  id: string;
+  category: string;
+  description: string;
+  found_in: string;
+  is_standard_boilerplate: boolean;
+};
+
+type PolicyCategory<T> = {
+  summary: string;
+  facts: T;
 };
 
 type SignedAssessment = {
@@ -22,13 +25,31 @@ type SignedAssessment = {
   expires_at: string;
   seller: { domain: string; url: string | null };
   flags: string[];
-  risk_factors_summary: Record<string, number>;
-  risk_score: number | null;
-  risk_level: string;
-  buyer_protection_score: number | null;
-  buyer_protection_rating: string | null;
-  risk_factors: RiskFactor[];
+  clauses_summary: Record<string, number>;
+  policies: {
+    returns?: PolicyCategory<{
+      window_days: number | null;
+      return_shipping: string | null;
+      restocking_fee: boolean | null;
+      refund_method: string | null;
+    }>;
+    shipping?: PolicyCategory<{
+      free_threshold_usd: number | null;
+      estimated_days_min: number | null;
+      estimated_days_max: number | null;
+      tracking_provided: boolean | null;
+    }>;
+    legal?: PolicyCategory<{
+      arbitration: boolean | null;
+      class_action_waiver: boolean | null;
+      jurisdiction: string | null;
+    }>;
+    pricing?: PolicyCategory<{ auto_renews: boolean | null }>;
+    privacy?: PolicyCategory<{ data_sold: boolean | null }>;
+  };
+  clauses: Clause[];
   positives: string[];
+  summary: string;
   analysis_status: string;
   confidence: string;
 };
@@ -60,10 +81,11 @@ const FETCH_SNIPPET = `const result = await fetch("https://policycheck.tools/api
   body: JSON.stringify({ seller_url: "https://amazon.com" }),
 }).then(r => r.json());
 
-// result.signed_assessment — the full risk data
-// result.signature         — Ed25519 signature (base64url)
-// result.verification_url  — where to verify
-// result.jwks_url          — public key for independent verification`;
+// result.signed_assessment.policies  — structured policy facts
+// result.signed_assessment.clauses   — detected clauses with is_standard_boilerplate
+// result.signed_assessment.flags     — flat array of clause IDs
+// result.signature                   — Ed25519 signature (base64url)
+// result.verification_url            — where to verify`;
 
 const MCP_SNIPPET = `// After installing: npx policycheck-mcp
 // In your agent or MCP-compatible tool:
@@ -72,10 +94,11 @@ const assessment = await tools.get_signed_assessment({
   seller_url: "https://amazon.com"
 });
 
-// assessment.risk_level       // "low" | "medium" | "high" | "critical"
-// assessment.buyer_protection_score  // 0–100
-// assessment.flags            // ["return_shipping_fee", ...]
-// assessment.signature        // cryptographic proof`;
+// assessment.policies.returns.facts.window_days   // e.g. 30
+// assessment.policies.returns.facts.return_shipping // "free" | "customer_pays"
+// assessment.clauses                               // detected clause list
+// assessment.flags                                 // ["return_shipping_fee", ...]
+// assessment.signature                             // cryptographic proof`;
 
 const VERIFY_SNIPPET = `// Verify a received assessment (stateless, no DB needed)
 const verify = await fetch("https://policycheck.tools/api/v1/verify", {
@@ -90,19 +113,6 @@ const verify = await fetch("https://policycheck.tools/api/v1/verify", {
 // { valid: true, assessment_id: "...", seller_domain: "amazon.com" }`;
 
 // ── Sub-components ───────────────────────────────────────────────────────────
-
-function SeverityBadge({ severity }: { severity: string }) {
-  const styles: Record<string, string> = {
-    high: "bg-red-900/50 text-red-300 border-red-700/50",
-    medium: "bg-yellow-900/50 text-yellow-300 border-yellow-700/50",
-    low: "bg-emerald-900/50 text-emerald-300 border-emerald-700/50",
-  };
-  return (
-    <span className={`inline-block px-2 py-0.5 text-xs rounded border font-medium ${styles[severity] ?? "bg-gray-800/50 text-gray-300 border-gray-600/50"}`}>
-      {severity}
-    </span>
-  );
-}
 
 function StatusBadge({ value, label }: { value: string; label?: string }) {
   const map: Record<string, string> = {
@@ -122,43 +132,24 @@ function StatusBadge({ value, label }: { value: string; label?: string }) {
   );
 }
 
-function RiskScoreCircle({ score, grade, riskLevel }: { score: number | null; grade: string | null; riskLevel: string }) {
-  const colorMap: Record<string, string> = {
-    low: "text-emerald-400 border-emerald-500/40",
-    medium: "text-yellow-400 border-yellow-500/40",
-    high: "text-orange-400 border-orange-500/40",
-    critical: "text-red-400 border-red-500/40",
-    unknown: "text-slate-400 border-slate-500/40",
-  };
-  const color = colorMap[riskLevel] ?? colorMap.unknown;
-
+function FactRow({ label, value }: { label: string; value: React.ReactNode }) {
+  if (value === null || value === undefined) return null;
   return (
-    <div className={`flex flex-col items-center justify-center w-24 h-24 rounded-full border-4 ${color} bg-[#1a1a2e] shrink-0`}>
-      <span className={`text-2xl font-bold ${color.split(" ")[0]}`}>
-        {score !== null ? score.toFixed(1) : "—"}
-      </span>
-      <span className="text-xs text-[#64748b] mt-0.5">/ 10</span>
+    <div className="flex justify-between items-baseline gap-4 py-1.5 border-b border-[#2a2a4a]/50 last:border-0">
+      <span className="text-xs text-[#64748b] shrink-0">{label}</span>
+      <span className="text-xs text-[#e2e8f0] text-right font-[family-name:var(--font-geist-mono)]">{value}</span>
     </div>
   );
 }
 
-function ProtectionBar({ score }: { score: number | null }) {
-  if (score === null) return null;
-  const color = score >= 80 ? "bg-emerald-500" : score >= 60 ? "bg-yellow-500" : score >= 40 ? "bg-orange-500" : "bg-red-500";
-  return (
-    <div>
-      <div className="flex justify-between text-xs text-[#64748b] mb-1">
-        <span>Buyer Protection Score</span>
-        <span className="font-semibold text-[#e2e8f0]">{score}/100</span>
-      </div>
-      <div className="h-2 bg-[#2a2a4a] rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${score}%` }} />
-      </div>
-    </div>
-  );
+function BoolFact({ val }: { val: boolean | null }) {
+  if (val === null) return <span className="text-[#64748b]">unknown</span>;
+  return val
+    ? <span className="text-emerald-400">yes</span>
+    : <span className="text-red-400">no</span>;
 }
 
-function CodeBlock({ children, id }: { children: string; id?: string }) {
+function CodeBlock({ children }: { children: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
     navigator.clipboard.writeText(children).then(() => {
@@ -168,7 +159,7 @@ function CodeBlock({ children, id }: { children: string; id?: string }) {
   };
   return (
     <div className="relative group my-4">
-      <pre id={id} className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-lg p-4 overflow-x-auto text-sm leading-relaxed font-[family-name:var(--font-geist-mono)]">
+      <pre className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-lg p-4 overflow-x-auto text-sm leading-relaxed font-[family-name:var(--font-geist-mono)]">
         <code className="text-[#e2e8f0]">{children}</code>
       </pre>
       <button
@@ -177,6 +168,18 @@ function CodeBlock({ children, id }: { children: string; id?: string }) {
       >
         {copied ? "Copied!" : "Copy"}
       </button>
+    </div>
+  );
+}
+
+// ── Policy fact panels ───────────────────────────────────────────────────────
+
+function PolicyPanel({ title, summary, children }: { title: string; summary: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-[#0f0f1a] border border-[#2a2a4a]/60 rounded-lg p-4">
+      <div className="text-xs font-semibold uppercase tracking-wider text-[#a78bfa] mb-1">{title}</div>
+      <p className="text-xs text-[#94a3b8] mb-3 leading-relaxed">{summary}</p>
+      <div>{children}</div>
     </div>
   );
 }
@@ -239,15 +242,10 @@ export default function DemoPage() {
   }
 
   const sa = result?.signed_assessment;
-  const riskLevel = sa?.risk_level ?? "unknown";
+  const p = sa?.policies;
 
-  const riskLevelColor: Record<string, string> = {
-    low: "text-emerald-400",
-    medium: "text-yellow-400",
-    high: "text-orange-400",
-    critical: "text-red-400",
-    unknown: "text-slate-400",
-  };
+  const nonBoilerplate = sa?.clauses.filter((c) => !c.is_standard_boilerplate) ?? [];
+  const boilerplate = sa?.clauses.filter((c) => c.is_standard_boilerplate) ?? [];
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#e2e8f0]">
@@ -270,10 +268,10 @@ export default function DemoPage() {
             Interactive Demo
           </div>
           <h1 className="text-4xl font-bold mb-3 leading-tight">
-            See what AI agents see<br />before they buy.
+            Structured policy facts.<br />Cryptographic proof.
           </h1>
           <p className="text-[#94a3b8] text-lg leading-relaxed max-w-2xl">
-            Enter any e-commerce store URL. PolicyCheck analyses the seller&apos;s return, shipping, and legal policies — then returns a cryptographically signed assessment your agent can present at checkout as proof of due diligence.
+            Enter any e-commerce store URL. PolicyCheck extracts structured facts from the seller&apos;s policies — return window, shipping costs, legal clauses — and returns a signed assessment your agent can present at checkout.
           </p>
         </div>
 
@@ -330,65 +328,114 @@ export default function DemoPage() {
         {sa && (
           <div className="space-y-5 mb-12">
 
-            {/* Score row */}
+            {/* Status + summary */}
             <div className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-xl p-6">
-              <div className="flex gap-6 items-start">
-                <RiskScoreCircle score={sa.risk_score} grade={sa.buyer_protection_rating} riskLevel={riskLevel} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-3 mb-3">
-                    <span className={`text-2xl font-bold uppercase tracking-wide ${riskLevelColor[riskLevel]}`}>
-                      {riskLevel} risk
-                    </span>
-                    {sa.buyer_protection_rating && (
-                      <span className="text-3xl font-bold text-[#a78bfa]">{sa.buyer_protection_rating}</span>
-                    )}
-                  </div>
-                  <div className="mb-4">
-                    <ProtectionBar score={sa.buyer_protection_score} />
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="text-[#64748b]">Status:</span>
-                    <StatusBadge value={sa.analysis_status} />
-                    <span className="text-[#64748b] ml-2">Confidence:</span>
-                    <StatusBadge value={sa.confidence} />
-                  </div>
-                </div>
+              <div className="flex flex-wrap gap-3 items-center mb-3">
+                <span className="text-sm font-semibold text-[#e2e8f0]">{sa.seller.domain}</span>
+                <StatusBadge value={sa.analysis_status} />
+                <StatusBadge value={sa.confidence} label={`confidence: ${sa.confidence}`} />
               </div>
+              <p className="text-sm text-[#94a3b8] leading-relaxed">{sa.summary}</p>
               {sa.analysis_status === "no_content" && (
-                <p className="mt-4 text-sm text-[#94a3b8] border-t border-[#2a2a4a] pt-4">
-                  Could not extract policy content from this site — it likely uses JavaScript rendering. Provide <code className="text-[#a78bfa]">policy_text</code> directly for analysis.
+                <p className="mt-3 text-sm text-[#94a3b8] border-t border-[#2a2a4a] pt-3">
+                  Could not extract policy content — the site may use JavaScript rendering. Provide <code className="text-[#a78bfa]">policy_text</code> directly.
                 </p>
               )}
             </div>
 
-            {/* Summary */}
-            {sa.analysis_status !== "no_content" && (
+            {/* Policy facts */}
+            {p && Object.keys(p).length > 0 && (
               <div className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-xl p-6">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-[#64748b] mb-2">Summary</h3>
-                <p className="text-sm text-[#94a3b8] leading-relaxed">{sa.risk_factors.length === 0 && sa.positives.length === 0 ? "No policy content could be analysed." : `${sa.seller.domain} — ${sa.risk_factors.length} risk factor${sa.risk_factors.length !== 1 ? "s" : ""} detected, ${sa.positives.length} positive${sa.positives.length !== 1 ? "s" : ""} found.`}</p>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-[#64748b] mb-4">Policy Facts</h3>
+                <div className="grid sm:grid-cols-2 gap-3">
+
+                  {p.returns && (
+                    <PolicyPanel title="Returns" summary={p.returns.summary}>
+                      <FactRow label="Return window" value={p.returns.facts.window_days !== null ? `${p.returns.facts.window_days} days` : null} />
+                      <FactRow label="Return shipping" value={p.returns.facts.return_shipping} />
+                      <FactRow label="Restocking fee" value={<BoolFact val={p.returns.facts.restocking_fee} />} />
+                      <FactRow label="Refund method" value={p.returns.facts.refund_method} />
+                    </PolicyPanel>
+                  )}
+
+                  {p.shipping && (
+                    <PolicyPanel title="Shipping" summary={p.shipping.summary}>
+                      <FactRow label="Free shipping over" value={p.shipping.facts.free_threshold_usd !== null ? `$${p.shipping.facts.free_threshold_usd}` : null} />
+                      <FactRow label="Delivery time" value={
+                        p.shipping.facts.estimated_days_min !== null && p.shipping.facts.estimated_days_max !== null
+                          ? `${p.shipping.facts.estimated_days_min}–${p.shipping.facts.estimated_days_max} days`
+                          : null
+                      } />
+                      <FactRow label="Tracking provided" value={<BoolFact val={p.shipping.facts.tracking_provided} />} />
+                    </PolicyPanel>
+                  )}
+
+                  {p.legal && (
+                    <PolicyPanel title="Legal" summary={p.legal.summary}>
+                      <FactRow label="Arbitration" value={<BoolFact val={p.legal.facts.arbitration} />} />
+                      <FactRow label="Class action waiver" value={<BoolFact val={p.legal.facts.class_action_waiver} />} />
+                      <FactRow label="Jurisdiction" value={p.legal.facts.jurisdiction} />
+                    </PolicyPanel>
+                  )}
+
+                  {p.pricing && (
+                    <PolicyPanel title="Pricing" summary={p.pricing.summary}>
+                      <FactRow label="Auto-renews" value={<BoolFact val={p.pricing.facts.auto_renews} />} />
+                    </PolicyPanel>
+                  )}
+
+                  {p.privacy && (
+                    <PolicyPanel title="Privacy" summary={p.privacy.summary}>
+                      <FactRow label="Data sold" value={<BoolFact val={p.privacy.facts.data_sold} />} />
+                    </PolicyPanel>
+                  )}
+
+                </div>
               </div>
             )}
 
-            {/* Flags */}
-            {sa.risk_factors.length > 0 && (
+            {/* Notable clauses */}
+            {nonBoilerplate.length > 0 && (
               <div className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-xl p-6">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-[#64748b] mb-4">
-                  Risk Factors <span className="text-[#94a3b8] normal-case font-normal">({sa.risk_factors.length})</span>
+                  Detected Clauses <span className="text-[#94a3b8] normal-case font-normal">({nonBoilerplate.length})</span>
                 </h3>
                 <div className="space-y-3">
-                  {sa.risk_factors.map((rf, i) => (
+                  {nonBoilerplate.map((c, i) => (
                     <div key={i} className="flex items-start gap-3">
-                      <SeverityBadge severity={rf.severity} />
+                      <span className="inline-block mt-0.5 px-2 py-0.5 text-xs rounded border bg-amber-900/30 text-amber-300 border-amber-700/50 shrink-0">{c.category}</span>
                       <div className="min-w-0">
-                        <code className="text-[#a78bfa] text-xs font-[family-name:var(--font-geist-mono)]">{rf.factor}</code>
-                        <p className="text-sm text-[#94a3b8] mt-0.5">{rf.detail}</p>
-                        {rf.severity_note && (
-                          <p className="text-xs text-[#64748b] mt-0.5 italic">{rf.severity_note}</p>
-                        )}
+                        <code className="text-[#a78bfa] text-xs font-[family-name:var(--font-geist-mono)]">{c.id}</code>
+                        <p className="text-sm text-[#94a3b8] mt-0.5">{c.description}</p>
                       </div>
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Standard boilerplate clauses — collapsed by default */}
+            {boilerplate.length > 0 && (
+              <div className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-xl overflow-hidden">
+                <details className="group">
+                  <summary className="flex items-center justify-between px-6 py-4 cursor-pointer hover:bg-[#2a2a4a]/30 transition-colors list-none">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#64748b]">
+                      Standard Boilerplate <span className="text-[#94a3b8] normal-case font-normal">({boilerplate.length} — common across major retailers)</span>
+                    </span>
+                    <span className="text-[#64748b] text-sm group-open:rotate-180 transition-transform">▾</span>
+                  </summary>
+                  <div className="border-t border-[#2a2a4a] px-6 py-4 space-y-3">
+                    {boilerplate.map((c, i) => (
+                      <div key={i} className="flex items-start gap-3">
+                        <span className="inline-block mt-0.5 px-2 py-0.5 text-xs rounded border bg-slate-800/50 text-slate-400 border-slate-600/50 shrink-0">{c.category}</span>
+                        <div className="min-w-0">
+                          <code className="text-[#94a3b8] text-xs font-[family-name:var(--font-geist-mono)]">{c.id}</code>
+                          <p className="text-sm text-[#64748b] mt-0.5">{c.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </details>
               </div>
             )}
 
@@ -409,7 +456,7 @@ export default function DemoPage() {
               </div>
             )}
 
-            {/* Verification */}
+            {/* Cryptographic proof */}
             <div className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-xl p-6">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#64748b] mb-1">Cryptographic Proof</h3>
               <p className="text-sm text-[#94a3b8] mb-4">
@@ -480,7 +527,7 @@ export default function DemoPage() {
               {[
                 { label: "User", desc: "instructs agent to buy" },
                 { label: "Agent", desc: "finds product" },
-                { label: "PolicyCheck", desc: "analyses seller" },
+                { label: "PolicyCheck", desc: "extracts policy facts" },
                 { label: "Agent", desc: "receives signed proof" },
                 { label: "Checkout", desc: "presents assessment" },
                 { label: "Merchant", desc: "verifies signature" },
@@ -498,7 +545,10 @@ export default function DemoPage() {
 
           <div className="space-y-3 text-sm text-[#94a3b8]">
             <p>
-              <strong className="text-[#e2e8f0]">Risk-aware decisions.</strong> The agent checks flags against user preferences — if the user said &quot;never buy from sellers with no_refund&quot;, the agent aborts automatically.
+              <strong className="text-[#e2e8f0]">Data, not judgement.</strong> PolicyCheck extracts facts — return window, return shipping cost, arbitration clause. The agent decides what to do with them based on user preferences.
+            </p>
+            <p>
+              <strong className="text-[#e2e8f0]">Boilerplate is labelled.</strong> Clauses like binding arbitration appear in virtually every major retailer&apos;s ToS. PolicyCheck marks them as <code className="text-[#a78bfa]">is_standard_boilerplate: true</code> so agents can filter signal from noise.
             </p>
             <p>
               <strong className="text-[#e2e8f0]">Verifiable proof.</strong> The signed assessment travels with the transaction. Merchants, payment processors, or auditors can verify it independently using the public JWKS key — no trust required.
@@ -513,7 +563,6 @@ export default function DemoPage() {
         <div className="mb-12">
           <h2 className="text-2xl font-semibold mb-6">Integrate in minutes</h2>
 
-          {/* Tab buttons */}
           <div className="flex gap-1 mb-2 border-b border-[#2a2a4a]">
             {(["fetch", "mcp", "verify"] as const).map(tab => (
               <button
@@ -542,7 +591,7 @@ export default function DemoPage() {
             {[
               {
                 title: "API Docs",
-                desc: "Full endpoint reference, response fields, scoring system.",
+                desc: "Full endpoint reference, response fields, integration patterns.",
                 href: "/docs",
                 label: "Read the docs →",
               },

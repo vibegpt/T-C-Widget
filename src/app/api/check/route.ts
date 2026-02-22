@@ -10,7 +10,7 @@ const CORS_HEADERS = {
 };
 
 // Domain-level in-memory cache (24h TTL)
-const cache = new Map<string, { data: DeepAnalysisResult & { flags: string[]; fetch_method: string }; expires: number }>();
+const cache = new Map<string, { data: DeepAnalysisResult & { flags: string[]; fetch_method: string; analysis_method?: string }; expires: number }>();
 const CACHE_TTL = 24 * 60 * 60 * 1000;
 
 function getCacheKey(sellerUrl: string): string | null {
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       policy_text || null,
     );
 
-    const flags = result.risk_factors.map((rf) => rf.factor);
+    const flags = result.clauses.map((c) => c.id);
     const response = { ...result, flags, fetch_method };
 
     // Cache the result
