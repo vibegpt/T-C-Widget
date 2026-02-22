@@ -49,6 +49,10 @@ const NAV_SECTIONS = [
   { id: "response-fields", label: "Response Fields" },
   { id: "clause-registry", label: "Clause Registry" },
   { id: "scoring", label: "Scoring System" },
+  { id: "signed-assessments", label: "Signed Assessments" },
+  { id: "endpoint-signed-assessment", label: "POST /api/v1/signed-assessment", indent: true },
+  { id: "endpoint-verify", label: "POST /api/v1/verify", indent: true },
+  { id: "endpoint-jwks", label: "GET /.well-known/jwks.json", indent: true },
   { id: "integration-patterns", label: "Integration Patterns" },
   { id: "discovery", label: "Discovery & Protocols" },
   { id: "rate-limits", label: "Rate Limits & Pricing" },
@@ -688,6 +692,116 @@ export default function DocsPage() {
               of 2.0).
             </p>
 
+            {/* ───────── Signed Assessments ───────── */}
+            <H2 id="signed-assessments">Signed Assessments</H2>
+            <p className="text-[#94a3b8] mb-4">
+              PolicyCheck supports cryptographically signed seller policy assessments. Agents can request a signed
+              assessment and present it as verifiable proof of seller policy analysis during checkout.
+            </p>
+            <div className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-lg p-4 mb-6 font-[family-name:var(--font-geist-mono)] text-sm text-[#94a3b8] overflow-x-auto">
+              Agent → <span className="text-[#a78bfa]">PolicyCheck</span> → signed assessment → Agent presents at checkout → Merchant/payment verifies signature
+            </div>
+
+            <H3 id="endpoint-signed-assessment">
+              <MethodBadge method="POST" /> /api/v1/signed-assessment
+            </H3>
+            <p className="text-[#94a3b8] mb-4">
+              Returns an Ed25519-signed seller assessment envelope. The assessment includes risk scores, flags,
+              and buyer protection data. Signatures use canonical JSON (sorted keys, no whitespace) and expire after 5 minutes.
+            </p>
+            <h4 className="text-sm font-semibold uppercase tracking-wider text-[#64748b] mb-2 mt-6">Request</h4>
+            <Code id="signed-assessment-request">{`curl -X POST https://policycheck.tools/api/v1/signed-assessment \\
+  -H "Content-Type: application/json" \\
+  -d '{"seller_url": "https://amazon.com"}'`}</Code>
+
+            <h4 className="text-sm font-semibold uppercase tracking-wider text-[#64748b] mb-2">Response</h4>
+            <Code id="signed-assessment-response">{`{
+  "signed_assessment": {
+    "version": "1.0",
+    "provider": "policycheck.tools",
+    "assessment_id": "550e8400-e29b-41d4-a716-446655440000",
+    "timestamp": "2026-02-22T10:00:00.000Z",
+    "expires_at": "2026-02-22T10:05:00.000Z",
+    "seller": { "domain": "amazon.com", "url": "https://amazon.com" },
+    "flags": ["return_shipping_fee"],
+    "risk_factors_summary": { "returns": 1 },
+    "risk_score": 0.5,
+    "risk_level": "low",
+    "buyer_protection_score": 95,
+    "buyer_protection_rating": "A+",
+    "risk_factors": [...],
+    "positives": [...],
+    "analysis_status": "complete",
+    "confidence": "high"
+  },
+  "signature": "base64url-ed25519-signature",
+  "signed_payload_hash": "sha256:abc123...",
+  "verification_url": "https://policycheck.tools/api/v1/verify",
+  "jwks_url": "https://policycheck.tools/.well-known/jwks.json"
+}`}</Code>
+
+            <H3 id="endpoint-verify">
+              <MethodBadge method="POST" /> /api/v1/verify
+            </H3>
+            <p className="text-[#94a3b8] mb-4">
+              Stateless signature verification. Pass the <InlineCode>signed_assessment</InlineCode> object and{" "}
+              <InlineCode>signature</InlineCode> from the signed-assessment response. Checks both expiry and Ed25519 signature validity.
+              No database or state required.
+            </p>
+            <Code id="verify-request">{`curl -X POST https://policycheck.tools/api/v1/verify \\
+  -H "Content-Type: application/json" \\
+  -d '{"signed_assessment": {...}, "signature": "..."}'`}</Code>
+            <Code id="verify-response">{`// Valid
+{ "valid": true, "assessment_id": "...", "seller_domain": "amazon.com",
+  "expires_at": "2026-02-22T10:05:00.000Z", "verified_at": "2026-02-22T10:01:00.000Z" }
+
+// Expired or invalid
+{ "valid": false, "reason": "Assessment has expired" }`}</Code>
+
+            <H3 id="endpoint-jwks">
+              <MethodBadge method="GET" /> /.well-known/jwks.json
+            </H3>
+            <p className="text-[#94a3b8] mb-4">
+              Returns the Ed25519 public key in standard JWKS format (OKP/Ed25519). Use this to verify signatures
+              independently without calling the verify endpoint. Cached for 1 hour.
+            </p>
+            <Code id="jwks-response">{`{
+  "keys": [{
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "use": "sig",
+    "kid": "policycheck-1",
+    "x": "base64url-encoded-public-key"
+  }]
+}`}</Code>
+
+            <h4 className="text-lg font-semibold mt-8 mb-3">Signed Assessment Example</h4>
+            <Code id="signed-assessment-example">{`// 1. Get signed assessment
+const result = await fetch("https://policycheck.tools/api/v1/signed-assessment", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ url: sellerUrl }),
+}).then(r => r.json());
+
+// 2. Present at checkout alongside agent identity
+const checkoutPayload = {
+  agent_identity: myAgentToken,
+  seller_assessment: result.signed_assessment,
+  seller_assessment_signature: result.signature,
+  seller_assessment_jwks: result.jwks_url,
+};
+
+// 3. Merchant/payment processor can verify independently
+const verification = await fetch(result.verification_url, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    signed_assessment: result.signed_assessment,
+    signature: result.signature,
+  }),
+}).then(r => r.json());
+// { valid: true, assessment_id: "...", seller_domain: "amazon.com" }`}</Code>
+
             {/* ───────── Integration Patterns ───────── */}
             <H2 id="integration-patterns">Integration Patterns</H2>
 
@@ -764,6 +878,9 @@ if (matched.length > 0) {
                     ["MCP Server", "npx policycheck-mcp", "MCP"],
                     ["Chrome Extension", "Chrome Web Store", "WebMCP"],
                     ["OpenAPI Spec", "policycheck.tools/openapi.json", "OpenAPI"],
+                    ["Signed Assessment", "POST policycheck.tools/api/v1/signed-assessment", "Signed"],
+                    ["Verify", "POST policycheck.tools/api/v1/verify", "Signed"],
+                    ["JWKS", "GET policycheck.tools/.well-known/jwks.json", "Signed"],
                     ["Clause Registry", "GET policycheck.tools/api/clause-registry", "HTTP"],
                   ].map(([method, url, protocol]) => (
                     <tr key={method} className="border-b border-[#1a1a2e]">

@@ -23,6 +23,9 @@ PolicyCheck is an intelligence provider — it surfaces factual risk data withou
 - `POST https://policycheck.tools/api/a2a` — JSON-RPC 2.0 endpoint implementing the A2A agent-to-agent protocol.
 - `POST https://policycheck.tools/api/x402/analyze` — x402 micropayment protocol endpoint ($0.03 USDC per analysis).
 - `GET https://policycheck.tools/api/clause-registry` — Returns versioned registry of all 22+ detectable clause types.
+- `POST https://policycheck.tools/api/v1/signed-assessment` — Returns Ed25519-signed seller policy assessment for verifiable checkout.
+- `POST https://policycheck.tools/api/v1/verify` — Stateless verification of signed assessments.
+- `GET https://policycheck.tools/.well-known/jwks.json` — JWKS public key for signature verification.
 
 ## Quick Start
 

@@ -6,7 +6,14 @@
   "protocolVersion": "0.2.0",
   "capabilities": {
     "streaming": false,
-    "pushNotifications": false
+    "pushNotifications": false,
+    "signed_assessments": {
+      "version": "1.0",
+      "assessment_endpoint": "/api/v1/signed-assessment",
+      "verify_endpoint": "/api/v1/verify",
+      "jwks_endpoint": "/.well-known/jwks.json",
+      "signing_algorithm": "Ed25519"
+    }
   },
   "defaultInputModes": ["text"],
   "defaultOutputModes": ["text"],
@@ -70,6 +77,16 @@
       "examples": [
         "Are there any legal red flags in these terms of service?",
         "Does this company have binding arbitration or class action waivers?"
+      ]
+    },
+    {
+      "id": "signed-assessment",
+      "name": "Signed Seller Assessment",
+      "description": "Generates a cryptographically signed seller policy assessment. Returns an Ed25519-signed envelope containing risk score, flags, and buyer protection data that agents can present as verifiable proof of seller policy analysis during checkout. Signatures can be independently verified via the JWKS endpoint.",
+      "tags": ["trust", "verification", "signed", "cryptographic", "checkout", "agent-identity"],
+      "examples": [
+        "Get a signed seller assessment for https://amazon.com",
+        "Generate verifiable seller trust data for this merchant"
       ]
     }
   ],

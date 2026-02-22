@@ -304,6 +304,107 @@ PolicyCheck is discoverable through multiple channels:
 
 ---
 
+## Signed Assessments
+
+PolicyCheck supports cryptographically signed seller policy assessments. Agents can present these signed assessments as verifiable proof of seller policy analysis during checkout.
+
+### POST /api/v1/signed-assessment — Signed Seller Assessment
+
+Returns an Ed25519-signed envelope containing the full risk assessment.
+
+**Request body:**
+```json
+{
+  "seller_url": "https://amazon.com"
+}
+```
+
+Also accepts: `url`, `policy_text`, `text`.
+
+**Response:**
+```json
+{
+  "signed_assessment": {
+    "version": "1.0",
+    "provider": "policycheck.tools",
+    "assessment_id": "550e8400-e29b-41d4-a716-446655440000",
+    "timestamp": "2026-02-22T10:00:00.000Z",
+    "expires_at": "2026-02-22T10:05:00.000Z",
+    "seller": {
+      "domain": "amazon.com",
+      "url": "https://amazon.com"
+    },
+    "flags": ["return_shipping_fee"],
+    "risk_factors_summary": { "returns": 1 },
+    "risk_score": 0.5,
+    "risk_level": "low",
+    "buyer_protection_score": 95,
+    "buyer_protection_rating": "A+",
+    "risk_factors": [...],
+    "positives": [...],
+    "analysis_status": "complete",
+    "confidence": "high"
+  },
+  "signature": "base64url-encoded-ed25519-signature",
+  "signed_payload_hash": "sha256:abc123...",
+  "verification_url": "https://policycheck.tools/api/v1/verify",
+  "jwks_url": "https://policycheck.tools/.well-known/jwks.json"
+}
+```
+
+The `signed_assessment` object is signed using Ed25519. The signature covers the canonical JSON (sorted keys, no whitespace) of the `signed_assessment` object. Assessments expire after 5 minutes.
+
+### POST /api/v1/verify — Verify Signed Assessment
+
+Stateless verification — no database required.
+
+**Request body:**
+```json
+{
+  "signed_assessment": { ... },
+  "signature": "base64url-encoded-signature"
+}
+```
+
+**Response (valid):**
+```json
+{
+  "valid": true,
+  "assessment_id": "550e8400-e29b-41d4-a716-446655440000",
+  "seller_domain": "amazon.com",
+  "expires_at": "2026-02-22T10:05:00.000Z",
+  "verified_at": "2026-02-22T10:01:00.000Z"
+}
+```
+
+**Response (expired or invalid):**
+```json
+{
+  "valid": false,
+  "reason": "Assessment has expired"
+}
+```
+
+### GET /.well-known/jwks.json — JWKS Public Key
+
+Returns the Ed25519 public key in JWKS format for independent signature verification.
+
+```json
+{
+  "keys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "use": "sig",
+      "kid": "policycheck-1",
+      "x": "base64url-encoded-public-key"
+    }
+  ]
+}
+```
+
+---
+
 ## Rate Limits & Pricing
 
 - **Free during beta** for standard API usage

@@ -29,6 +29,10 @@ const nextConfig: NextConfig = {
         source: "/.well-known/x402.json",
         destination: "/api/x402-discovery",
       },
+      {
+        source: "/.well-known/jwks.json",
+        destination: "/api/jwks",
+      },
     ];
   },
   async headers() {
