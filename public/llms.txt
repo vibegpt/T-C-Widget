@@ -1,0 +1,53 @@
+# PolicyCheck
+
+> Pre-purchase seller policy verification service for AI agents. PolicyCheck analyzes e-commerce seller policies (returns, shipping, warranty, terms of service, privacy) and returns structured risk assessments to help autonomous agents make informed purchasing decisions.
+
+PolicyCheck is an intelligence provider — it surfaces factual risk data without making binary go/no-go recommendations, preserving agent autonomy while enabling programmatic policy risk checks.
+
+## Documentation
+
+- [API Documentation](https://policycheck.tools/docs): Full reference for all endpoints, response fields, clause registry, scoring system, and integration patterns
+- [OpenAPI Spec](https://policycheck.tools/openapi.json): Machine-readable OpenAPI 3.0 specification
+- [Agent Card (A2A)](https://policycheck.tools/.well-known/agent.json): A2A protocol agent discovery card
+- [Clause Registry](https://policycheck.tools/api/clause-registry): Versioned registry of all detectable clause types
+
+## Integration
+
+- [npm Package (MCP)](https://www.npmjs.com/package/policycheck-mcp): Install as an MCP tool — `npx policycheck-mcp`
+- [x402 Bazaar](https://bazaar.x402.org): Listed for autonomous agent discovery with USDC micropayment support
+- [WebMCP (Chrome)](https://policycheck.tools/docs#webmcp): Available via Chrome's `navigator.modelContext` API
+
+## API Endpoints
+
+- `POST https://policycheck.tools/api/check` — Primary REST endpoint. Submit a seller URL or raw policy text, receive structured risk analysis.
+- `POST https://policycheck.tools/api/a2a` — JSON-RPC 2.0 endpoint implementing the A2A agent-to-agent protocol.
+- `POST https://policycheck.tools/api/x402/analyze` — x402 micropayment protocol endpoint ($0.03 USDC per analysis).
+- `GET https://policycheck.tools/api/clause-registry` — Returns versioned registry of all 22+ detectable clause types.
+
+## Quick Start
+
+```bash
+curl -X POST https://policycheck.tools/api/check \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example-store.com"}'
+```
+
+## Key Response Fields
+
+- `risk_score` (0–10, null if no content found)
+- `grade` (A+ through F letter grade)
+- `buyer_protection_score` (0–100 inverse of risk)
+- `flags` (string array of detected clause type identifiers — primary field for rule-based agents)
+- `risk_factors` (detailed findings with severity, source, found_in)
+- `analysis_status` ("complete" | "partial" | "no_content" | "text_provided") — check this before trusting scores
+- `confidence` ("high" | "medium" | "low" | "none")
+
+## Optional: Supply Your Own Policy Text
+
+If the seller site uses JavaScript rendering that blocks server-side fetching, agents can render the page themselves and submit the extracted text directly:
+
+```bash
+curl -X POST https://policycheck.tools/api/check \
+  -H "Content-Type: application/json" \
+  -d '{"policy_text": "All sales final. No returns accepted..."}'
+```
