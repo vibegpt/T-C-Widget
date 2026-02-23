@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deepAnalyze } from "@/lib/deepPolicyAnalyzer";
 import { signPayload } from "@/lib/signing";
+import { writeAuditRecord, hashApiKey } from "@/lib/audit";
 import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
@@ -20,6 +21,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const seller_url = body.seller_url || body.url;
     const policy_text = body.policy_text || body.text;
+    const agent_id: string | null = body.agent_id ?? null;
+    const transaction_ref: string | null = body.transaction_ref ?? null;
+    const rawApiKey = req.headers.get("x-api-key") ?? "anonymous";
+    const api_key_hash = hashApiKey(rawApiKey);
 
     if (!seller_url && !policy_text) {
       return NextResponse.json(
@@ -70,6 +75,24 @@ export async function POST(req: NextRequest) {
 
     // Sign the payload
     const { signature, signed_payload_hash } = signPayload(signedAssessment);
+
+    // Audit log (fire-and-forget)
+    writeAuditRecord({
+      api_key_hash,
+      event: "signed_assessment",
+      seller_domain: sellerDomain === "unknown" ? null : sellerDomain,
+      agent_id,
+      transaction_ref,
+      analysis_status: result.analysis_status,
+      confidence: result.confidence,
+      flags: signedAssessment.flags,
+      clause_count: result.clauses.length,
+      non_boilerplate_count: result.clauses.filter((c) => !c.is_standard_boilerplate).length,
+      signed: true,
+      verified: null,
+      assessment_id: signedAssessment.assessment_id,
+      ip: req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? null,
+    });
 
     return NextResponse.json(
       {

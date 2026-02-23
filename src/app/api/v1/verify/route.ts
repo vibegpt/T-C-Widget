@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySignature } from "@/lib/signing";
+import { writeAuditRecord, hashApiKey } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,8 @@ export async function POST(req: NextRequest) {
     // Accept both new and legacy field names
     const assessment = body.signed_assessment || body.tap_seller_trust;
     const { signature } = body;
+    const rawApiKey = req.headers.get("x-api-key") ?? "anonymous";
+    const api_key_hash = hashApiKey(rawApiKey);
 
     if (!assessment || !signature) {
       return NextResponse.json(
@@ -46,19 +49,38 @@ export async function POST(req: NextRequest) {
     // Verify Ed25519 signature
     const valid = verifySignature(assessment, signature);
 
+    const verifiedAt = new Date().toISOString();
+    const auditBase = {
+      api_key_hash,
+      event: "verify" as const,
+      seller_domain: assessment.seller?.domain ?? null,
+      agent_id: body.agent_id ?? null,
+      transaction_ref: body.transaction_ref ?? null,
+      analysis_status: assessment.analysis_status ?? null,
+      confidence: assessment.confidence ?? null,
+      flags: assessment.flags ?? [],
+      clause_count: assessment.clauses?.length ?? 0,
+      non_boilerplate_count: assessment.clauses?.filter((c: { is_standard_boilerplate: boolean }) => !c.is_standard_boilerplate).length ?? 0,
+      signed: true,
+      assessment_id: assessment.assessment_id ?? null,
+      ip: req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? null,
+    };
+
     if (valid) {
+      writeAuditRecord({ ...auditBase, verified: true });
       return NextResponse.json(
         {
           valid: true,
           assessment_id: assessment.assessment_id,
           seller_domain: assessment.seller?.domain,
           expires_at: assessment.expires_at,
-          verified_at: new Date().toISOString(),
+          verified_at: verifiedAt,
         },
         { headers: CORS_HEADERS },
       );
     }
 
+    writeAuditRecord({ ...auditBase, verified: false });
     return NextResponse.json(
       {
         valid: false,
