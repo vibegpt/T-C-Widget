@@ -17,6 +17,7 @@
   "capabilities": {
     "streaming": false,
     "pushNotifications": false,
+    "stateTransitionHistory": false,
     "signed_assessments": {
       "version": "1.0",
       "assessment_endpoint": "/api/v1/signed-assessment",
@@ -25,14 +26,16 @@
       "signing_algorithm": "Ed25519"
     }
   },
-  "defaultInputModes": ["text"],
-  "defaultOutputModes": ["text"],
+  "defaultInputModes": ["text/plain", "application/json"],
+  "defaultOutputModes": ["application/json"],
   "skills": [
     {
       "id": "comprehensive-policy-analysis",
       "name": "Comprehensive Policy Analysis",
       "description": "Full analysis of a seller's return, shipping, warranty, and terms policies. Accepts policy URLs or raw text. Returns risk level (low/medium/high/critical), buyer protection score (0-100), key findings in plain English, risk flags, and a factual summary. Provides risk data to inform purchase decisions.",
       "tags": ["policy","risk-assessment","buyer-protection","commerce","returns","shipping","warranty","terms","compliance","consumer-protection","pre-purchase","due-diligence"],
+      "inputModes": ["text/plain", "application/json"],
+      "outputModes": ["application/json"],
       "examples": [
         "Analyse all policies for https://example-store.com before I purchase wireless earbuds for $79.99",
         "Check the return and shipping policies at this URL: https://store.com/policies/refund-policy",
@@ -44,6 +47,8 @@
       "name": "Quick Risk Check",
       "description": "Auto-discovers and analyses policy pages from a seller's base URL. Crawls common policy paths (/policies/refund-policy, /policies/shipping-policy, /terms-of-service etc.) and returns a quick risk score. Best for fast pre-purchase screening when you only have the seller's homepage URL.",
       "tags": ["quick-check","auto-discovery","risk-score","seller-screening"],
+      "inputModes": ["text/plain", "application/json"],
+      "outputModes": ["application/json"],
       "examples": [
         "Quick risk check on https://techgadgets-store.com",
         "Get risk data for this seller: https://example-shop.com"
@@ -54,6 +59,8 @@
       "name": "Return Policy Analysis",
       "description": "Focused analysis of a seller's return/refund policy. Extracts return window (days), restocking fees, who pays return shipping, exchange-only or store-credit restrictions, final sale items, and condition requirements.",
       "tags": ["returns","refunds","restocking-fee","return-window"],
+      "inputModes": ["text/plain", "application/json"],
+      "outputModes": ["application/json"],
       "examples": [
         "What's the return policy at https://store.com/policies/refund-policy",
         "Analyse this return policy text for hidden restrictions"
@@ -64,6 +71,8 @@
       "name": "Shipping Policy Analysis",
       "description": "Focused analysis of a seller's shipping policy. Extracts free shipping thresholds, delivery timeframes, international availability, handling time, carriers, and tracking availability.",
       "tags": ["shipping","delivery","free-shipping","tracking"],
+      "inputModes": ["text/plain", "application/json"],
+      "outputModes": ["application/json"],
       "examples": [
         "How long does shipping take from this store?",
         "Does this seller offer free shipping and tracking?"
@@ -74,6 +83,8 @@
       "name": "Warranty Analysis",
       "description": "Focused analysis of product or seller warranty. Extracts warranty duration, type (limited/full/lifetime/manufacturer), coverage details, exclusions, and claim process.",
       "tags": ["warranty","guarantee","coverage","exclusions"],
+      "inputModes": ["text/plain", "application/json"],
+      "outputModes": ["application/json"],
       "examples": [
         "What does the warranty cover for this product?",
         "Are there any warranty exclusions I should know about?"
@@ -84,6 +95,8 @@
       "name": "Terms & Conditions Analysis",
       "description": "Legal risk analysis of terms and conditions. Checks for binding arbitration clauses, class action waivers, liability caps, termination rights, auto-renewal terms, governing law/jurisdiction, and data practices. Especially important for high-value purchases or ongoing subscriptions.",
       "tags": ["terms","legal","arbitration","liability","class-action","jurisdiction","auto-renewal","consumer-rights"],
+      "inputModes": ["text/plain", "application/json"],
+      "outputModes": ["application/json"],
       "examples": [
         "Are there any legal red flags in these terms of service?",
         "Does this company have binding arbitration or class action waivers?"
@@ -94,6 +107,8 @@
       "name": "Signed Seller Assessment",
       "description": "Generates a cryptographically signed seller policy assessment. Returns an Ed25519-signed envelope containing risk score, flags, and buyer protection data that agents can present as verifiable proof of seller policy analysis during checkout. Signatures can be independently verified via the JWKS endpoint.",
       "tags": ["trust","verification","signed","cryptographic","checkout","agent-identity"],
+      "inputModes": ["text/plain", "application/json"],
+      "outputModes": ["application/json"],
       "examples": [
         "Get a signed seller assessment for https://amazon.com",
         "Generate verifiable seller trust data for this merchant"
