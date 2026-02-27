@@ -105,12 +105,13 @@
     "url": "https://policycheck.tools"
   },
   "documentationUrl": "https://policycheck.tools/docs/a2a",
-  "security": [
-    {
+  "security": [{ "apiKey": [] }],
+  "securitySchemes": {
+    "apiKey": {
       "type": "apiKey",
       "in": "header",
       "name": "X-API-Key",
       "description": "API key for authenticated access. Free tier: 100 requests/minute. Contact api@policycheck.tools for higher limits."
     }
-  ]
+  }
 }
