@@ -251,7 +251,7 @@ While voiceover plays, add on-screen text:
 **1:25 (Closing):**
 ```
 Install from Shopify App Store
-legaleasy.tools
+policycheck.tools
 ```
 
 ---

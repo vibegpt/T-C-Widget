@@ -4,7 +4,7 @@
 
 MCP server for AI seller verification and policy risk analysis. Checks return policies, shipping, warranty, and terms of service for any online store.
 
-Powered by [PolicyCheck](https://legaleasy.tools) — the policy analysis engine behind LegalEasy.
+Powered by [PolicyCheck](https://policycheck.tools) — the policy analysis engine behind LegalEasy.
 
 ## Why use this?
 
@@ -67,7 +67,7 @@ Add to your Cursor MCP settings:
 
 | Environment Variable | Default | Description |
 |---------------------|---------|-------------|
-| `POLICYCHECK_API_URL` | `https://legaleasy.tools/api/a2a` | A2A endpoint URL |
+| `POLICYCHECK_API_URL` | `https://policycheck.tools/api/a2a` | A2A endpoint URL |
 
 ## How it works
 

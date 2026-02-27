@@ -447,7 +447,7 @@ INTEGRATION WITH ENHANCED PARSER:
 - Calculate risk scores
 
 This gives you a complete database ready for:
-- legaleasy.tools/crypto/exchanges comparison table
+- policycheck.tools/crypto/exchanges comparison table
 - Individual exchange pages
 - Risk alerts
 - Change detection

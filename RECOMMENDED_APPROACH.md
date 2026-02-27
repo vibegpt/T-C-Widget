@@ -167,7 +167,7 @@ You can launch your Mirra page TODAY with 6 exchanges. This covers:
 
 **Day 2**:
 1. Execute `EXCHANGE_ANALYSIS_BATCH_2.sql` in Supabase
-2. Update legaleasy.tools/crypto/exchanges comparison page
+2. Update policycheck.tools/crypto/exchanges comparison page
 3. Soft launch to friends for feedback
 
 **Day 3-4**:

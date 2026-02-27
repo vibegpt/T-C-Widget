@@ -3,6 +3,16 @@
   "description": "Seller policy risk intelligence for AI-powered commerce. Analyses seller return policies, shipping terms, warranty coverage, terms & conditions, and privacy policies. Returns structured risk data including risk level classifications, buyer protection scores (0-100), key findings, and factual summaries. Designed to be called by purchasing agents (ChatGPT, Claude, custom agents) to provide policy risk data for any merchant.",
   "version": "1.0.0",
   "url": "https://policycheck.tools/api/a2a",
+  "wellKnownURI": "https://policycheck.tools/.well-known/agent.json",
+  "homepage": "https://policycheck.tools",
+  "license": "Apache-2.0",
+  "pricing": {
+    "model": "freemium",
+    "details": "https://policycheck.tools/pricing"
+  },
+  "contact": {
+    "email": "support@policycheck.tools"
+  },
   "protocolVersion": "0.2.0",
   "capabilities": {
     "streaming": false,
@@ -70,7 +80,7 @@
       ]
     },
     {
-      "id": "terms-analysis",
+      "id": "terms-and-conditions-analysis",
       "name": "Terms & Conditions Analysis",
       "description": "Legal risk analysis of terms and conditions. Checks for binding arbitration clauses, class action waivers, liability caps, termination rights, auto-renewal terms, governing law/jurisdiction, and data practices. Especially important for high-value purchases or ongoing subscriptions.",
       "tags": ["terms", "legal", "arbitration", "liability", "class-action", "jurisdiction", "auto-renewal", "consumer-rights"],
@@ -91,7 +101,7 @@
     }
   ],
   "provider": {
-    "organization": "LegalEasy",
+    "organization": "PolicyCheck",
     "url": "https://policycheck.tools"
   },
   "documentationUrl": "https://policycheck.tools/docs/a2a",

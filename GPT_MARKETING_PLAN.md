@@ -151,7 +151,7 @@ Title options:
 **Publish on:**
 - Medium
 - Dev.to
-- Your own blog (legaleasy.tools/blog)
+- Your own blog (policycheck.tools/blog)
 
 **Structure:**
 1. Hook: "I bought a $200 jacket and couldn't return it. Here's why..."
@@ -266,7 +266,7 @@ Try it: [link]
 ### SEO & Organic
 
 **Create landing page:**
-- legaleasy.tools/gpt
+- policycheck.tools/gpt
 - Include: Demo, use cases, testimonials
 - CTA: "Try in ChatGPT"
 
@@ -286,7 +286,7 @@ Try it: [link]
 
 **Google Ads:**
 - Target: "merchant return policy" + similar
-- Landing page: legaleasy.tools/gpt
+- Landing page: policycheck.tools/gpt
 - Budget: Start with $10/day
 
 **Twitter Ads:**

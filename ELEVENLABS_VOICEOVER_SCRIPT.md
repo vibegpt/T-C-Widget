@@ -232,7 +232,7 @@ Your script is ~1,100 characters, so **free tier works!**
 
 **Shopify Submission:**
 - [ ] Upload video to Shopify App listing
-- [ ] Add to legaleasy.tools homepage
+- [ ] Add to policycheck.tools homepage
 - [ ] Share on social media
 - [ ] Embed in OpenAI partnership pitch
 
@@ -250,7 +250,7 @@ Your script is ~1,100 characters, so **free tier works!**
 ## 🎯 Next Steps After Video
 
 1. ✅ Upload to YouTube (unlisted or public)
-2. ✅ Embed on legaleasy.tools homepage
+2. ✅ Embed on policycheck.tools homepage
 3. ✅ Add to Shopify App Store listing
 4. ✅ Include in OpenAI partnership email
 5. ✅ Share on Twitter/LinkedIn
@@ -274,7 +274,7 @@ Your script is ~1,100 characters, so **free tier works!**
 **For Video Editing:**
 - Sync audio to video visuals
 - Cut music when voiceover emphasizes key points
-- Add text overlays for URLs ("legaleasy.tools")
+- Add text overlays for URLs ("policycheck.tools")
 - Include captions for accessibility
 
 ---

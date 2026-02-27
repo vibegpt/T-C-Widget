@@ -140,6 +140,6 @@ GPT: "I can help you understand what the policy says, but I'm not a
 
 ## Also Check Your Legal Page
 
-Your privacy policy at https://legaleasy.tools/legal should also have this disclaimer.
+Your privacy policy at https://policycheck.tools/legal should also have this disclaimer.
 
 Let me check:

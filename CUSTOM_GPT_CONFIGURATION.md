@@ -80,7 +80,7 @@ Click **"Create new action"**
 
 **Schema:**
 - Click: **"Import from URL"**
-- Enter: `https://legaleasy.tools/openapi.json`
+- Enter: `https://policycheck.tools/openapi.json`
 - Click: **Import**
 
 You should see two actions imported:
@@ -88,7 +88,7 @@ You should see two actions imported:
 2. `analyzeLegalDocumentFromURL`
 
 **Privacy Policy:**
-- Enter: `https://legaleasy.tools/legal`
+- Enter: `https://policycheck.tools/legal`
 
 ---
 
@@ -107,7 +107,7 @@ Leave unchecked:
 
 **Profile Picture / Logo:**
 - Upload your logo (512x512 PNG)
-- Or use this placeholder: https://legaleasy.tools/logo.png
+- Or use this placeholder: https://policycheck.tools/logo.png
 
 **Allow use of conversation data:**
 - Your choice (recommended: Yes for improvement)
@@ -181,13 +181,13 @@ about the return policy? The merchant is example.com.
 ### Issue: "Action failed to execute"
 
 **Check:**
-1. Is https://legaleasy.tools/openapi.json accessible?
+1. Is https://policycheck.tools/openapi.json accessible?
    ```bash
-   curl https://legaleasy.tools/openapi.json
+   curl https://policycheck.tools/openapi.json
    ```
 2. Are your API endpoints returning proper responses?
    ```bash
-   curl -X POST https://legaleasy.tools/api/chatgpt/analyze \
+   curl -X POST https://policycheck.tools/api/chatgpt/analyze \
      -H "Content-Type: application/json" \
      -d '{"text":"test"}'
    ```
@@ -202,7 +202,7 @@ about the return policy? The merchant is example.com.
 ### Issue: "Privacy policy required"
 
 **Check:**
-- Does https://legaleasy.tools/legal exist?
+- Does https://policycheck.tools/legal exist?
 
 **Solution:**
 - Create `/src/app/legal/page.tsx` (we'll do this next)

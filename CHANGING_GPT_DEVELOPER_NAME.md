@@ -52,7 +52,7 @@ This is the "official" way to have a separate brand identity for your GPTs.
 5. Fill in:
    - **Name:** Bagger.tools
    - **Bio:** AI tools for transparency and consumer rights
-   - **Website:** https://bagger.tools (or https://legaleasy.tools)
+   - **Website:** https://bagger.tools (or https://policycheck.tools)
 6. Save the profile
 
 **Then, when editing your GPT:**
@@ -99,7 +99,7 @@ This is the "official" way to have a separate brand identity for your GPTs.
 - If Bagger.tools is specifically for LegalEasy, you might want:
   - **Developer:** Bagger.tools
   - **GPT Name:** LegalEasy - Shop Smarter
-  - **Website:** legaleasy.tools (but it can redirect to bagger.tools)
+  - **Website:** policycheck.tools (but it can redirect to bagger.tools)
 
 ---
 
@@ -108,7 +108,7 @@ This is the "official" way to have a separate brand identity for your GPTs.
 Right now, your GPT shows:
 - **Name:** LegalEasy - Shop Smarter ✅
 - **Developer:** [Your ChatGPT account name] ⚠️
-- **Privacy Policy:** https://legaleasy.tools/legal ✅
+- **Privacy Policy:** https://policycheck.tools/legal ✅
 
 **To change developer to "Bagger.tools":**
 1. Try Option 2 first (Builder Profile) if available
@@ -137,7 +137,7 @@ I've created a logo for you:
 6. Click Update
 
 The logo is also saved to:
-- `public/logo.png` (will be accessible at https://legaleasy.tools/logo.png after deployment)
+- `public/logo.png` (will be accessible at https://policycheck.tools/logo.png after deployment)
 - Your Desktop for easy access
 
 ---

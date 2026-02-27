@@ -87,7 +87,7 @@
 
 **[Visual: Call to action]**
 
-> "Try it now at legaleasy.tools"
+> "Try it now at policycheck.tools"
 
 **[Music: Outro fades out]**
 
@@ -229,7 +229,7 @@
   - "Plain English Summaries"
   - "Works with ChatGPT Shopping"
   - "Shopify Integration Available"
-  - "legaleasy.tools"
+  - "policycheck.tools"
 
 ### Visual Transitions:
 - Use smooth fades or slides (avoid jarring cuts)
@@ -265,7 +265,7 @@ Use complete script above
 
 ### 2. Social Media Teaser (30 seconds)
 **Script:**
-> "Shopping online? LegalEasy analyzes refund policies, shipping terms, and privacy practices in plain English. Works with ChatGPT. Try it now at legaleasy.tools"
+> "Shopping online? LegalEasy analyzes refund policies, shipping terms, and privacy practices in plain English. Works with ChatGPT. Try it now at policycheck.tools"
 
 ### 3. Merchant Pitch (1 minute)
 **Focus on:**
@@ -290,7 +290,7 @@ Use complete script above
    - LinkedIn (professional audience)
 
 2. **Embed on:**
-   - legaleasy.tools homepage
+   - policycheck.tools homepage
    - Shopify App Store listing
    - Blog post announcing the launch
 

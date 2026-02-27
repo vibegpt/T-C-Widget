@@ -111,11 +111,11 @@ Customer: [Buys with confidence] ✓
 ### Current Status: ✅ Fully Functional
 
 **API Endpoints (Live):**
-- `POST https://legaleasy.tools/api/chatgpt/analyze` - Analyze text
-- `POST https://legaleasy.tools/api/chatgpt/analyze-url` - Analyze URL
+- `POST https://policycheck.tools/api/chatgpt/analyze` - Analyze text
+- `POST https://policycheck.tools/api/chatgpt/analyze-url` - Analyze URL
 
 **OpenAPI Specification:**
-- https://legaleasy.tools/openapi.json
+- https://policycheck.tools/openapi.json
 - Fully documented with request/response schemas
 - Compatible with ChatGPT Actions
 
@@ -234,7 +234,7 @@ Customer: [Buys with confidence] ✓
 - Highlighted auto-deleveraging risks on perps
 
 **Technical Validation:**
-- API live at legaleasy.tools
+- API live at policycheck.tools
 - Custom GPT functional and tested
 - OpenAPI spec validated
 - Successfully parsed 100+ complex legal documents
@@ -427,12 +427,12 @@ Customer: [Buys with confidence] ✓
 **Technology:** Next.js, Sanity CMS, AI-powered parsing, Vercel hosting
 **Team:** [Your details]
 
-**Website:** https://legaleasy.tools
-**API Docs:** https://legaleasy.tools/openapi.json
+**Website:** https://policycheck.tools
+**API Docs:** https://policycheck.tools/openapi.json
 **Demo:** [Link to Custom GPT once created]
 
 **Contact:**
-- Email: support@legaleasy.tools
+- Email: support@policycheck.tools
 - GitHub: https://github.com/vibegpt/T-C-Widget
 
 ---
@@ -533,7 +533,7 @@ POST /api/chatgpt/analyze-url
 
 **Ready to make ChatGPT shopping the most transparent e-commerce platform in the world? Let's talk.**
 
-**Contact:** support@legaleasy.tools
+**Contact:** support@policycheck.tools
 **Schedule a demo:** [Calendly link or email]
 
 ---

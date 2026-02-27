@@ -69,7 +69,7 @@ Located in `/src/app/api/chatgpt/`
 #### 2. **OpenAPI Specification**
 Located at `/public/openapi.json`
 
-- **Server URL:** `https://legaleasy.tools` ✅ (deployed on Vercel)
+- **Server URL:** `https://policycheck.tools` ✅ (deployed on Vercel)
 - **Operations:**
   - `analyzeLegalDocument` - For pasted text
   - `analyzeLegalDocumentFromURL` - For URL analysis
@@ -197,16 +197,16 @@ ChatGPT can call your Action at any point during a shopping conversation to help
 ### ✅ Live URLs
 
 **Main Site:**
-- https://legaleasy.tools
-- https://legaleasy.tools/crypto
+- https://policycheck.tools
+- https://policycheck.tools/crypto
 
 **API Endpoints:**
-- https://legaleasy.tools/api/chatgpt/analyze
-- https://legaleasy.tools/api/chatgpt/analyze-url
+- https://policycheck.tools/api/chatgpt/analyze
+- https://policycheck.tools/api/chatgpt/analyze-url
 
 **ChatGPT Discovery:**
-- https://legaleasy.tools/.well-known/ai-plugin.json
-- https://legaleasy.tools/openapi.json
+- https://policycheck.tools/.well-known/ai-plugin.json
+- https://policycheck.tools/openapi.json
 
 **Status:** All deployed on Vercel, auto-deploys from GitHub main branch
 
@@ -216,7 +216,7 @@ You can test it right now:
 
 **Option 1: Direct API Call**
 ```bash
-curl -X POST https://legaleasy.tools/api/chatgpt/analyze \
+curl -X POST https://policycheck.tools/api/chatgpt/analyze \
   -H "Content-Type: application/json" \
   -d '{
     "text": "By using this service, you agree to binding arbitration. We can terminate your account at any time. Our maximum liability is $100.",
@@ -227,7 +227,7 @@ curl -X POST https://legaleasy.tools/api/chatgpt/analyze \
 **Option 2: Via ChatGPT (once you publish Custom GPT)**
 1. Go to ChatGPT
 2. Create Custom GPT
-3. Import your OpenAPI spec from https://legaleasy.tools/openapi.json
+3. Import your OpenAPI spec from https://policycheck.tools/openapi.json
 4. Test with: "Analyze this text: [paste terms]"
 
 ---
@@ -267,9 +267,9 @@ curl -X POST https://legaleasy.tools/api/chatgpt/analyze \
 
 4. **Add Action:**
    - Click "Create new action"
-   - Import from URL: `https://legaleasy.tools/openapi.json`
+   - Import from URL: `https://policycheck.tools/openapi.json`
    - Authentication: None
-   - Privacy Policy: `https://legaleasy.tools/legal`
+   - Privacy Policy: `https://policycheck.tools/legal`
 
 5. **Publish:**
    - Click "Save"
@@ -309,7 +309,7 @@ For merchants who want to integrate directly:
 
 ```javascript
 // Example: Merchant's website could call your API
-const response = await fetch('https://legaleasy.tools/api/chatgpt/analyze-url', {
+const response = await fetch('https://policycheck.tools/api/chatgpt/analyze-url', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -474,12 +474,12 @@ LegalEasy: Earns commission if user buys
 - [ ] **Test API endpoints** - Verify both /analyze and /analyze-url work
   ```bash
   # Test analyze endpoint
-  curl -X POST https://legaleasy.tools/api/chatgpt/analyze \
+  curl -X POST https://policycheck.tools/api/chatgpt/analyze \
     -H "Content-Type: application/json" \
     -d '{"text":"Test terms of service text"}'
 
   # Test analyze-url endpoint
-  curl -X POST https://legaleasy.tools/api/chatgpt/analyze-url \
+  curl -X POST https://policycheck.tools/api/chatgpt/analyze-url \
     -H "Content-Type: application/json" \
     -d '{"url":"https://stripe.com/legal/ssa"}'
   ```
@@ -620,7 +620,7 @@ LegalEasy: Earns commission if user buys
 **A:** Yes, but not directly through ChatGPT. You'd need to:
 1. Add API key authentication to your endpoints
 2. Create a subscription service on your site
-3. Users sign up/pay on legaleasy.tools
+3. Users sign up/pay on policycheck.tools
 4. Get API key to use in Custom GPT
 
 ### Q: What if merchants don't want their policies analyzed?
@@ -648,7 +648,7 @@ LegalEasy: Earns commission if user buys
 ### Issue: ChatGPT can't access my API
 
 **Check:**
-1. Verify endpoints are live: `curl https://legaleasy.tools/api/chatgpt/analyze`
+1. Verify endpoints are live: `curl https://policycheck.tools/api/chatgpt/analyze`
 2. Check CORS headers allow all origins
 3. Validate OpenAPI spec at https://editor.swagger.io/
 4. Ensure no authentication required (or properly configured)
@@ -723,12 +723,12 @@ ChatGPT Agentic Commerce is new and growing. Being an early "Service Enhancer" p
 - Parser: `/src/lib/parseTerms.ts`
 
 ### Live Endpoints
-- Main site: https://legaleasy.tools
-- API docs: https://legaleasy.tools/openapi.json
-- Plugin manifest: https://legaleasy.tools/.well-known/ai-plugin.json
+- Main site: https://policycheck.tools
+- API docs: https://policycheck.tools/openapi.json
+- Plugin manifest: https://policycheck.tools/.well-known/ai-plugin.json
 
 ### Support
-- Email: support@legaleasy.tools
+- Email: support@policycheck.tools
 - GitHub: https://github.com/vibegpt/T-C-Widget
 
 ---

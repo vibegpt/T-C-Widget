@@ -1,7 +1,7 @@
 # LegalEasy Project Status & Roadmap
 
 **Last Updated:** October 22, 2025
-**Live Site:** https://legaleasy.tools/crypto
+**Live Site:** https://policycheck.tools/crypto
 
 ---
 
@@ -9,7 +9,7 @@
 
 ### ✅ What's Live & Working
 
-#### 1. **Crypto Exchange Analysis Platform** (legaleasy.tools/crypto)
+#### 1. **Crypto Exchange Analysis Platform** (policycheck.tools/crypto)
 
 **Core Features:**
 - **Market Issues Section** - Educational content about common exchange problems
@@ -49,7 +49,7 @@
 - **CMS:** Sanity.io
 - **Styling:** Tailwind CSS
 - **Deployment:** Vercel
-- **Domain:** legaleasy.tools
+- **Domain:** policycheck.tools
 - **Content Management:** Sanity Studio at `/studio`
 
 ---
@@ -360,10 +360,10 @@ The documentation mentions "agentic commerce" and ChatGPT integration for analyz
 ## Resources & Links
 
 ### Live URLs
-- **Main site:** https://legaleasy.tools/crypto
-- **Binance article:** https://legaleasy.tools/crypto/news/binance-oracle-failure-600m-loss
-- **Market issues:** https://legaleasy.tools/crypto/market-issues
-- **Sanity Studio:** https://legaleasy.tools/studio
+- **Main site:** https://policycheck.tools/crypto
+- **Binance article:** https://policycheck.tools/crypto/news/binance-oracle-failure-600m-loss
+- **Market issues:** https://policycheck.tools/crypto/market-issues
+- **Sanity Studio:** https://policycheck.tools/studio
 
 ### Code Repository
 - **GitHub:** https://github.com/vibegpt/T-C-Widget
@@ -373,7 +373,7 @@ The documentation mentions "agentic commerce" and ChatGPT integration for analyz
 ### External Services
 - **Sanity CMS:** Project ID `c15x4s4x`, Dataset `production`
 - **Vercel:** Auto-deploys from GitHub main branch
-- **Domain:** legaleasy.tools (DNS managed where?)
+- **Domain:** policycheck.tools (DNS managed where?)
 
 ### Documentation Files
 All located in project root:

@@ -374,7 +374,7 @@ Would indicate strong user protections, clear terms, insurance, regulation.
 5. Mirra can synthesize: "Both have clawback, but OKX is clearer about it"
 
 ### For Your Website:
-- Create individual exchange pages (e.g., legaleasy.tools/crypto/cex/mexc)
+- Create individual exchange pages (e.g., policycheck.tools/crypto/cex/mexc)
 - Use the 🚨🟠🟡 emoji system for visual scanning
 - Include "Before You Trade" checklists
 - Link to full terms
@@ -390,4 +390,4 @@ Would indicate strong user protections, clear terms, insurance, regulation.
 
 **Last Updated**: November 5, 2025
 **Next Update**: After analyzing remaining 18 platforms
-**Questions?**: todd@legaleasy.tools
+**Questions?**: todd@policycheck.tools
