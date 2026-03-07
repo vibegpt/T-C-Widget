@@ -1,0 +1,28 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "PolicyCheck",
+  "description": "Pre-purchase seller policy verification for AI agents. Analyzes e-commerce seller return policies, shipping terms, warranty conditions, and legal clauses. Returns structured JSON with a risk score (0-10), letter grade (A-F), categorized policy flags with severity levels (low/medium/high), identified policy strengths, and source-aware analysis distinguishing consumer-facing terms from legal boilerplate. All assessments are cryptographically signed with Ed25519 for tamper-proof verification. Supports x402 micropayments, REST API, MCP, and A2A protocols.",
+  "image": "https://policycheck.tools/icon.png",
+  "services": [
+    {
+      "name": "web",
+      "endpoint": "https://policycheck.tools/"
+    },
+    {
+      "name": "A2A",
+      "endpoint": "https://policycheck.tools/.well-known/agent.json",
+      "version": "0.3.0"
+    },
+    {
+      "name": "MCP",
+      "endpoint": "https://policycheck.tools/mcp",
+      "version": "2025-06-18"
+    }
+  ],
+  "x402Support": true,
+  "active": true,
+  "registrations": [],
+  "supportedTrust": [
+    "reputation"
+  ]
+}
