@@ -1,0 +1,77 @@
+---
+title: "When AI Plays Lawyer: The Problem With Summarising Seller Policies"
+date: "2026-03-07"
+excerpt: "AI agents are increasingly making purchasing decisions on behalf of users. But when the AI 'reads' a seller's return policy, what actually happens — and what gets missed?"
+---
+
+In March 2026, Nippon Life Insurance filed a $10 million lawsuit against OpenAI. The allegation: ChatGPT impersonated a lawyer for their employee, Graciela Dela Torre, cited fabricated cases — including the entirely fictional "Carr v. Gateway, Inc. 9" — and convinced her to fire her real attorney and file a series of baseless suits. The firm spent over $300,000 responding to documents built on hallucinated legal reality.
+
+Before going further: I should flag something uncomfortable. This story reached most people through social media commentary and AI-summarized sources, including a Polymarket tweet and Grok's summary of it. That's the chain I'm working from too. There's something genuinely unsettling about writing an article on AI hallucinating facts while potentially repeating AI-summarized facts.
+
+That's not a disclaimer to cover myself. It's actually the point.
+
+---
+
+## We've Seen This Before
+
+The Nippon Life case echoes 2023's Mata v. Avianca — where attorney Steven Schwartz was sanctioned after submitting ChatGPT-generated citations to a federal court. Cases that didn't exist. Judges who never ruled. The court was not amused.
+
+But there's a meaningful difference between the two.
+
+In Mata v. Avianca, a professional misused the tool. A lawyer who should have known better let an AI write his filings without checking them. That's bad professional judgment. The liability story is relatively familiar: the human made the call.
+
+In the Nippon Life case, the alleged harm came directly from the AI's persuasive output on a regular user. Graciela Dela Torre wasn't a lawyer. She asked ChatGPT for legal help and got confident, detailed, fabricated guidance that sent her down a path that cost her employer hundreds of thousands of dollars. The AI played the expert. She had no way to verify it.
+
+That's a different category of problem. And it's going to keep happening.
+
+---
+
+## This Isn't a Model Problem. It's an Infrastructure Problem.
+
+The instinctive response to stories like this is to call for slower AI, more disclaimers, better safety rails. Those conversations aren't useless, but they miss the underlying issue.
+
+ChatGPT didn't fail because the model was insufficiently restricted. It failed because it was operating as an authoritative source with no grounding layer beneath it. No verification. No structured data to check its outputs against. No audit trail. Just a confident voice generating plausible-sounding text.
+
+When that happens in a legal context, you get fabricated case citations. When it happens in a medical context, you get invented dosage guidelines. When it happens in a commercial context — which is where things are heading fast — you get agents making purchases based on policies that don't say what the agent thinks they say.
+
+The problem compounds at every layer. The AI generates something confident. The user acts on it. The downstream consequences arrive weeks later. By then, the conversation is long gone.
+
+---
+
+## The Commerce Version of This Is Coming
+
+Right now, AI agents are being wired into e-commerce at scale. OpenAI's Agentic Commerce Protocol went live for all US ChatGPT users in February 2026. Google's Universal Commerce Protocol launched in January with 20+ major retail partners. Agents are buying things autonomously, on behalf of real people, from real sellers.
+
+Ask yourself: before an agent buys a $400 pair of headphones on your behalf, does it know whether the seller charges a 20% restocking fee on returns? Whether the warranty is voided by international shipping? Whether disputes go to binding arbitration in a jurisdiction you've never heard of?
+
+Probably not. It reads whatever's on the page and makes a judgment call. And language models are genuinely bad at policy analysis — they miss clauses, misread legalese, and sometimes confidently assert things that aren't there.
+
+That's the commerce version of "Carr v. Gateway, Inc. 9."
+
+---
+
+## What Grounding Infrastructure Actually Looks Like
+
+This is where [PolicyCheck](https://policycheck.tools) comes in, and I'll be direct about what it does and doesn't do.
+
+PolicyCheck doesn't tell agents whether to buy something. It's not a gatekeeper. It's an intelligence layer: one API call before a purchase that returns structured, machine-readable data about what a seller's policies actually say. Return windows, restocking fees, shipping terms, warranty conditions, arbitration clauses, liability caps. The things that matter when something goes wrong.
+
+Every assessment is cryptographically signed with Ed25519. That means it's verifiable and timestamped — there's a paper trail. The agent (or the human behind the agent) can check that the assessment is genuine and hasn't been tampered with. It's not just a model's opinion. It's a signed artifact.
+
+The agent still decides. PolicyCheck just ensures it's deciding on verified facts rather than whatever a language model happened to generate when it skimmed the returns page.
+
+That distinction — intelligence provider, not decision-maker — is deliberate. The Nippon Life case is partly a story about an AI that presented itself as an authority when it had no business doing so. PolicyCheck is the opposite design: structured data, explicit uncertainty, cryptographic provenance. Here's what we found. You decide what to do with it.
+
+---
+
+## The Infrastructure Layer Is the Leverage Point
+
+The lawyers in Mata v. Avianca were sanctioned. Nippon Life is suing for $10 million. The consequences of operating without grounding infrastructure are landing on real organizations now.
+
+As agents move into higher-stakes domains — not just buying headphones, but managing vendor relationships, executing B2B contracts, handling procurement at scale — the infrastructure layer matters as much as the model layer. Maybe more.
+
+Better models will keep coming. The underlying hallucination problem has proven stubborn and probably won't be fully solved at the model level anytime soon. What can be solved, domain by domain, is the grounding layer. Verified policy data for commerce. Verified case citations for legal research. Verified drug interactions for medical applications.
+
+The bet PolicyCheck is making is simple: agents need verifiable ground truth, not just good vibes from a confident language model.
+
+Graciela Dela Torre needed that too. She just didn't have it.
