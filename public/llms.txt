@@ -1,18 +1,55 @@
 # PolicyCheck
 
-Independent, evidence-backed seller policy facts for purchasing agents. Returns
-Ed25519-signed assessments. Agents apply their own purchase criteria.
+> Pre-purchase seller policy verification service for AI agents. PolicyCheck analyzes e-commerce seller policies (returns, shipping, warranty, terms of service, privacy) and returns structured factual data to help autonomous agents make informed purchasing decisions.
 
-- [Skill and usage contract](https://policycheck.tools/skill.md)
-- [Documentation](https://policycheck.tools/docs)
-- [OpenAPI](https://policycheck.tools/openapi.json)
-- [A2A card](https://policycheck.tools/.well-known/agent.json)
-- [Public keys](https://policycheck.tools/.well-known/jwks.json)
-- [MCP package](https://www.npmjs.com/package/policycheck-mcp)
+PolicyCheck is an intelligence provider — it surfaces factual policy data without making binary go/no-go recommendations, preserving agent autonomy. It extracts structured facts (return window, return shipping cost, arbitration clauses) and labels standard boilerplate separately from unusual restrictions.
 
-POST /api/v1/signed-assessment or /api/check. Use seller_url for discovery,
-url for an exact policy page, or policy_text for supplied content. Check sources,
-evidence, analysis_status, limitations and expiry before using the facts.
-POST /api/x402/analyze supports paid access with x402 v2. Read its live 402 price.
-PolicyCheck does not guarantee that a merchant's statements are true or applicable
-to an individual purchase. A signature authenticates the assessment's issuer.
+## Documentation
+
+- [API Documentation](https://policycheck.tools/docs): Full reference for all endpoints, response fields, clause registry, and integration patterns
+- [OpenAPI Spec](https://policycheck.tools/openapi.json): Machine-readable OpenAPI 3.0 specification
+- [Agent Card (A2A)](https://policycheck.tools/.well-known/agent.json): A2A protocol agent discovery card
+- [Clause Registry](https://policycheck.tools/api/clause-registry): Versioned registry of all detectable clause types
+
+## Integration
+
+- [npm Package (MCP)](https://www.npmjs.com/package/policycheck-mcp): Install as an MCP tool — `npx policycheck-mcp`
+- [x402 Bazaar](https://bazaar.x402.org): Listed for autonomous agent discovery with USDC micropayment support
+- [WebMCP (Chrome)](https://policycheck.tools/docs#webmcp): Available via Chrome's `navigator.modelContext` API
+
+## API Endpoints
+
+- `POST https://policycheck.tools/api/check` — Primary REST endpoint. Submit a seller URL or raw policy text, receive structured policy analysis.
+- `POST https://policycheck.tools/api/a2a` — JSON-RPC 2.0 endpoint implementing the A2A agent-to-agent protocol.
+- `POST https://policycheck.tools/api/x402/analyze` — x402 micropayment protocol endpoint ($0.03 USDC per analysis).
+- `GET https://policycheck.tools/api/clause-registry` — Returns versioned registry of all detectable clause types with boilerplate indicators.
+- `POST https://policycheck.tools/api/v1/signed-assessment` — Returns Ed25519-signed seller policy assessment for verifiable checkout.
+- `POST https://policycheck.tools/api/v1/verify` — Stateless verification of signed assessments.
+- `GET https://policycheck.tools/.well-known/jwks.json` — JWKS public key for signature verification.
+
+## Quick Start
+
+```bash
+curl -X POST https://policycheck.tools/api/check \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example-store.com"}'
+```
+
+## Key Response Fields
+
+- `policies` — structured facts per category: returns (window_days, return_shipping, restocking_fee, refund_method), shipping (free_threshold_usd, estimated_days_min/max, tracking_provided), legal (arbitration, class_action_waiver, jurisdiction), pricing (auto_renews), privacy (data_sold)
+- `clauses` — detected clause list with id, category, description, found_in, and `is_standard_boilerplate` boolean
+- `flags` — flat string array of detected clause IDs (convenience field for rule-based agents)
+- `positives` — buyer-friendly policy findings
+- `analysis_status` ("complete" | "partial" | "no_content" | "text_provided") — check this before trusting results
+- `confidence` ("high" | "medium" | "low" | "none")
+
+## Optional: Supply Your Own Policy Text
+
+If the seller site uses JavaScript rendering that blocks server-side fetching, agents can render the page themselves and submit the extracted text directly:
+
+```bash
+curl -X POST https://policycheck.tools/api/check \
+  -H "Content-Type: application/json" \
+  -d '{"policy_text": "All sales final. No returns accepted..."}'
+```

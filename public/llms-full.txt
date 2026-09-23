@@ -1,50 +1,478 @@
+# PolicyCheck — Full Documentation
+
+> Pre-purchase seller policy verification service for AI agents.
+
+PolicyCheck analyzes e-commerce seller policies (returns, shipping, warranty, terms of service, privacy) and returns structured factual data. It is designed as an intelligence provider — surfacing policy facts without making binary go/no-go recommendations, preserving agent autonomy while enabling programmatic policy checks before autonomous purchases.
+
+**Base URL:** `https://policycheck.tools`
+
 ---
-name: policycheck
-description: Retrieve independent seller policy facts and evidence before an agent-assisted purchase.
+
+## Overview
+
+When an AI agent is about to make a purchase autonomously, it faces a trust problem: how can it know whether the seller's policies are fair or predatory? PolicyCheck solves this by analyzing seller policy pages and returning structured, machine-readable data that agents can act on programmatically.
+
+Key design principles:
+- **Data, not decisions:** PolicyCheck reports what it found (return window, arbitration clause, free shipping threshold); the agent decides what to do with it.
+- **Independence:** Operates as a user-installed tool. Sellers never control their own assessments.
+- **Structured output:** Designed for programmatic consumption, not just human reading.
+- **Honest about limits:** Returns empty policies and explicit status indicators when content cannot be extracted, rather than hallucinating data.
+- **Boilerplate labelling:** Standard legal clauses (arbitration, class action waiver) that appear in virtually every major retailer's ToS are marked `is_standard_boilerplate: true` so agents can filter signal from noise.
+
 ---
 
-# PolicyCheck
+## Endpoints
 
-Use when a buyer asks about returns, shipping, warranty terms or seller policy clauses.
-PolicyCheck supplies facts; apply the buyer's requirements yourself. Do not interpret a
-signature or the absence of detected clauses as an endorsement of a merchant.
+### POST /api/check — Primary REST API
 
-## Tools
+The main endpoint for seller policy analysis.
 
-Install `policycheck-mcp@1.0.3` in an MCP client using stdio (`npx -y policycheck-mcp@1.0.3`).
-- `check_seller_policies({seller_url})`: discover common policy pages.
-- `analyze_seller({url})`: fetch exactly one policy page.
-- `check_policy_text({text})`: extract from supplied text; embedded URLs are not followed.
+**Request body** (one of the following input fields):
+```json
+{
+  "url": "https://example-store.com",
+  "seller_url": "https://example-store.com",
+  "policy_text": "raw policy text...",
+  "text": "raw policy text..."
+}
+```
 
-## HTTP
+**Response:**
+```json
+{
+  "seller_url": "https://example-store.com",
+  "policies": {
+    "returns": {
+      "summary": "30-day return window. Free returns for most items.",
+      "facts": {
+        "window_days": 30,
+        "return_shipping": "free",
+        "restocking_fee": false,
+        "refund_method": "original_payment"
+      }
+    },
+    "shipping": {
+      "summary": "Free shipping on orders over $35. Standard delivery 5-8 business days.",
+      "facts": {
+        "free_threshold_usd": 35,
+        "estimated_days_min": 5,
+        "estimated_days_max": 8,
+        "tracking_provided": true
+      }
+    },
+    "legal": {
+      "summary": "Standard arbitration clause. Class action waiver present. Governed by Minnesota law.",
+      "facts": {
+        "arbitration": true,
+        "class_action_waiver": true,
+        "jurisdiction": "Minnesota"
+      }
+    }
+  },
+  "clauses": [
+    {
+      "id": "binding_arbitration",
+      "category": "legal",
+      "description": "Mandatory binding arbitration for all disputes",
+      "found_in": "terms_of_service",
+      "is_standard_boilerplate": true
+    },
+    {
+      "id": "return_shipping_fee",
+      "category": "returns",
+      "description": "Customer pays return shipping on certain items",
+      "found_in": "return_policy",
+      "is_standard_boilerplate": false
+    }
+  ],
+  "flags": ["binding_arbitration", "return_shipping_fee"],
+  "positives": ["30-day return window", "Free standard shipping over $35"],
+  "summary": "3 of 4 policy categories analyzed. 2 clauses detected. Returns are generally favorable with a 30-day window.",
+  "fetch_method": "server_fetch",
+  "analysis_status": "complete",
+  "confidence": "high",
+  "analyzed_at": "2026-02-22T10:00:00.000Z"
+}
+```
 
-POST https://policycheck.tools/api/v1/signed-assessment with JSON containing
-`seller_url`, `url`, or `policy_text` (50–100,000 characters). Optional `agent_id`
-and `transaction_ref` are bound into the signed envelope. A URL supplied alongside
-text identifies the claimed seller only; it does not verify the text's origin.
+**analysis_status values:**
+- `"complete"` — PolicyCheck successfully fetched and analyzed one or more policy pages
+- `"partial"` — Some pages fetched, some failed
+- `"no_content"` — Could not extract policy content (often due to JavaScript rendering)
+- `"text_provided"` — Caller provided raw text directly
 
-## Interpret the result
+**fetch_method values:**
+- `"server_fetch"` — PolicyCheck fetched the policies itself via server-side request
+- `"client_provided"` — The calling agent provided the rendered text (higher trust)
+- `"text_input"` — Raw text was submitted directly
 
-Read `signed_assessment`. Its `policies` contain typed facts and evidence quotes;
-`clauses` contain source-aware boilerplate flags. `sources` record retrieval times,
-content hashes, truncation, and whether content was fetched or supplied.
+---
 
-Check `analysis_status`: `no_content`, `no_facts`, and `extraction_failed` provide
-no usable conclusions. `partial` means there are coverage or extraction gaps.
-Never treat a missing policy or null fact as proof that a restriction does not exist.
-Excerpts match the analyzed source text; extraction is still model-assisted and can err.
+### POST /api/a2a — Agent-to-Agent Protocol
 
-Verify Ed25519 using the trusted public keys at
-https://policycheck.tools/.well-known/jwks.json and recursively key-sorted JSON
-with no whitespace. The signature covers `signed_assessment`, not duplicated
-convenience fields outside it. Check seller, timestamp, expiry and transaction
-context. Alternatively POST `{signed_assessment, signature}` to
-https://policycheck.tools/api/v1/verify. `signature_valid` reports authenticity;
-`fresh` reports current eligibility; legacy `valid` requires both.
+JSON-RPC 2.0 endpoint implementing the A2A protocol for agent-to-agent communication.
 
-## Paid calls
+**Agent card:** `https://policycheck.tools/.well-known/agent.json`
 
-POST https://policycheck.tools/api/x402/analyze with the same input. Use an x402 v2
-client to handle PAYMENT-REQUIRED, PAYMENT-SIGNATURE and PAYMENT-RESPONSE.
-Honor the live advertised price. Successful partial results are billable and disclose
-limitations. No settlement occurs for no_content, no_facts or extraction_failed.
+**Request format:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "message/send",
+  "params": {
+    "message": {
+      "role": "user",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Check seller policies for https://example-store.com"
+        }
+      ]
+    }
+  },
+  "id": "1"
+}
+```
+
+Response includes both human-readable text and a structured JSON artifact with the same fields as `/api/check`.
+
+---
+
+### POST /api/x402/analyze — x402 Micropayment Protocol
+
+For agents using the x402 payment protocol. Enables autonomous USDC micropayments ($0.03 per analysis on Base mainnet).
+
+**Request body:**
+```json
+{
+  "seller_url": "https://example-store.com"
+}
+```
+
+Also accepts: `url`, `sellerUrl`, `text`, `policy_text`.
+
+Response format is identical to `/api/check`.
+
+---
+
+### GET /api/clause-registry — Clause Type Registry
+
+Returns the versioned registry of all detectable clause types. Stable identifiers within a major version — safe to write agent rules against.
+
+**Response:**
+```json
+{
+  "version": "2.0.0",
+  "clauses": [
+    {
+      "id": "return_shipping_fee",
+      "category": "returns",
+      "description": "Customer bears cost of return shipping",
+      "is_standard_boilerplate": false
+    },
+    {
+      "id": "binding_arbitration",
+      "category": "legal",
+      "description": "Mandatory binding arbitration for disputes — no court litigation",
+      "is_standard_boilerplate": true
+    },
+    ...
+  ]
+}
+```
+
+---
+
+## Response Fields Reference
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `policies` | object | Per-category structured facts (see below) |
+| `clauses` | array | Detected clause list (see below) |
+| `flags` | string[] | Flat array of detected clause IDs (convenience field) |
+| `positives` | string[] | Buyer-friendly policy findings |
+| `summary` | string | Human-readable factual summary |
+| `fetch_method` | string | How the policy content was obtained |
+| `analysis_status` | string | Reliability indicator — always check this |
+| `confidence` | string | "high", "medium", "low", or "none" |
+| `analyzed_at` | string | ISO 8601 timestamp |
+
+### policies object
+
+Each category is only present if content was found for it. All fact values may be null if not stated in the policy text.
+
+**policies.returns.facts:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `window_days` | number \| null | Return window in days |
+| `return_shipping` | "free" \| "customer_pays" \| "unknown" \| null | Who pays return shipping |
+| `restocking_fee` | boolean \| null | Whether a restocking fee is charged |
+| `refund_method` | "original_payment" \| "store_credit" \| "exchange_only" \| "unknown" \| null | How refunds are issued |
+
+**policies.shipping.facts:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `free_threshold_usd` | number \| null | Minimum order for free shipping |
+| `estimated_days_min` | number \| null | Minimum delivery days |
+| `estimated_days_max` | number \| null | Maximum delivery days |
+| `tracking_provided` | boolean \| null | Whether tracking is provided |
+
+**policies.legal.facts:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `arbitration` | boolean \| null | Whether binding arbitration is required |
+| `class_action_waiver` | boolean \| null | Whether class action is waived |
+| `jurisdiction` | string \| null | Governing jurisdiction |
+
+**policies.pricing.facts:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `auto_renews` | boolean \| null | Whether subscriptions auto-renew |
+
+**policies.privacy.facts:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `data_sold` | boolean \| null | Whether user data is sold to third parties |
+
+### clauses array items
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Clause type identifier (matches clause registry) |
+| `category` | string | Policy category: "returns", "shipping", "legal", "pricing", "privacy" |
+| `description` | string | Plain language description of the clause |
+| `found_in` | string | Specific page: "return_policy", "terms_of_service", "shipping_policy", "privacy_policy", "unknown" |
+| `is_standard_boilerplate` | boolean | True for clauses common in virtually all major retailer policies (arbitration, class action waiver, liability cap, jurisdiction, termination at will). False for unusual restrictions affecting consumers. |
+
+---
+
+## Clause Registry (Current)
+
+Key detectable clause types:
+
+**Returns category:**
+- `no_refund` — All sales final
+- `no_refund_opened` — Opened items cannot be returned
+- `return_shipping_fee` — Customer pays return shipping
+- `restocking_fee` — Restocking fee charged on returns
+- `short_return_window` — Return window under 30 days
+- `store_credit_only` — Refunds only as store credit
+- `final_sale` — Items marked as final sale
+- `exchange_only` — Exchanges only, no cash refunds
+
+**Legal category (most are standard boilerplate):**
+- `binding_arbitration` — Mandatory arbitration clause *(standard boilerplate)*
+- `class_action_waiver` — Class action lawsuit waiver *(standard boilerplate)*
+- `liability_cap` — Limitation of seller liability *(standard boilerplate)*
+- `jurisdiction_clause` — Specific jurisdiction requirement *(standard boilerplate)*
+- `termination_at_will` — Can terminate account without cause *(standard boilerplate)*
+
+**Pricing category:**
+- `auto_renewal` — Automatic subscription renewal
+- `price_adjustment_clause` — Prices may change after order
+- `hidden_fees` — Fees disclosed only at checkout
+
+**Privacy category:**
+- `data_selling` — User data sold or shared commercially
+- `broad_data_collection` — Collects more data than needed
+
+---
+
+## Integration Patterns
+
+### Pattern 1: Pre-purchase check (recommended)
+
+```javascript
+async function shouldProceed(sellerUrl, userPreferences) {
+  const res = await fetch('https://policycheck.tools/api/check', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: sellerUrl })
+  });
+  const analysis = await res.json();
+
+  // Always check analysis_status first
+  if (analysis.analysis_status === 'no_content') {
+    return { proceed: false, reason: 'Could not verify seller policies' };
+  }
+
+  // Check dealbreaker flags (agent decides, not PolicyCheck)
+  const dealbreakers = userPreferences.dealbreakers || [];
+  const flagged = analysis.flags.filter(f => dealbreakers.includes(f));
+  if (flagged.length > 0) {
+    return { proceed: false, reason: `Policy flags: ${flagged.join(', ')}` };
+  }
+
+  // Use structured facts for nuanced decisions
+  const returns = analysis.policies.returns?.facts;
+  if (returns?.window_days !== null && returns?.window_days < userPreferences.minReturnDays) {
+    return { proceed: false, reason: `Return window ${returns.window_days} days < minimum ${userPreferences.minReturnDays}` };
+  }
+
+  return { proceed: true, analysis };
+}
+```
+
+### Pattern 2: Supply rendered policy text (for JS-heavy sites)
+
+If the seller site uses JavaScript rendering, the agent can render the page itself and submit the text:
+
+```javascript
+const pageText = await page.evaluate(() => document.body.innerText);
+const res = await fetch('https://policycheck.tools/api/check', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ policy_text: pageText })
+});
+```
+
+### Pattern 3: MCP tool (Claude/agent frameworks)
+
+```bash
+npx policycheck-mcp
+```
+
+Installs PolicyCheck as an MCP tool. Once installed, agents can call:
+```
+check_seller_policy({ url: "https://example-store.com" })
+```
+
+### Pattern 4: A2A agent-to-agent
+
+Send a natural language message to `/api/a2a` using JSON-RPC 2.0. The response includes both a human-readable summary and a structured JSON artifact.
+
+---
+
+## Discovery
+
+PolicyCheck is discoverable through multiple channels:
+
+- **REST API:** `https://policycheck.tools/api/check`
+- **OpenAPI:** `https://policycheck.tools/openapi.json`
+- **A2A Agent Card:** `https://policycheck.tools/.well-known/agent.json`
+- **MCP npm package:** `policycheck-mcp` on npm
+- **x402 Bazaar:** Listed at bazaar.x402.org for autonomous agent discovery
+- **WebMCP / Chrome:** Available via `navigator.modelContext` in Chrome Canary
+
+---
+
+## Signed Assessments
+
+PolicyCheck supports cryptographically signed seller policy assessments. Agents can present these signed assessments as verifiable proof of seller policy analysis during checkout.
+
+### POST /api/v1/signed-assessment — Signed Seller Assessment
+
+Returns an Ed25519-signed envelope containing the full policy assessment.
+
+**Request body:**
+```json
+{
+  "seller_url": "https://amazon.com"
+}
+```
+
+Also accepts: `url`, `policy_text`, `text`.
+
+**Response:**
+```json
+{
+  "signed_assessment": {
+    "version": "2.0",
+    "provider": "policycheck.tools",
+    "assessment_id": "550e8400-e29b-41d4-a716-446655440000",
+    "timestamp": "2026-02-22T10:00:00.000Z",
+    "expires_at": "2026-02-22T10:05:00.000Z",
+    "seller": {
+      "domain": "amazon.com",
+      "url": "https://amazon.com"
+    },
+    "flags": ["return_shipping_fee", "binding_arbitration"],
+    "clauses_summary": { "returns": 1, "legal": 1 },
+    "policies": { ... },
+    "clauses": [ ... ],
+    "positives": [ ... ],
+    "summary": "...",
+    "analysis_status": "complete",
+    "confidence": "high"
+  },
+  "signature": "base64url-encoded-ed25519-signature",
+  "signed_payload_hash": "sha256:abc123...",
+  "verification_url": "https://policycheck.tools/api/v1/verify",
+  "jwks_url": "https://policycheck.tools/.well-known/jwks.json"
+}
+```
+
+The `signed_assessment` object is signed using Ed25519. The signature covers the canonical JSON (sorted keys, no whitespace) of the `signed_assessment` object. Assessments expire after 5 minutes.
+
+### POST /api/v1/verify — Verify Signed Assessment
+
+Stateless verification — no database required.
+
+**Request body:**
+```json
+{
+  "signed_assessment": { ... },
+  "signature": "base64url-encoded-signature"
+}
+```
+
+**Response (valid):**
+```json
+{
+  "valid": true,
+  "assessment_id": "550e8400-e29b-41d4-a716-446655440000",
+  "seller_domain": "amazon.com",
+  "expires_at": "2026-02-22T10:05:00.000Z",
+  "verified_at": "2026-02-22T10:01:00.000Z"
+}
+```
+
+**Response (expired or invalid):**
+```json
+{
+  "valid": false,
+  "reason": "Assessment has expired"
+}
+```
+
+### GET /.well-known/jwks.json — JWKS Public Key
+
+Returns the Ed25519 public key in JWKS format for independent signature verification.
+
+```json
+{
+  "keys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "use": "sig",
+      "kid": "policycheck-1",
+      "x": "base64url-encoded-public-key"
+    }
+  ]
+}
+```
+
+---
+
+## Rate Limits & Pricing
+
+- **Free during beta** for standard API usage
+- Results cached for 24 hours per seller URL
+- **x402 endpoint:** $0.03 USDC per analysis (Base mainnet), paid autonomously by the agent
+
+---
+
+## Important Notes
+
+1. **PolicyCheck is an intelligence provider, not a gatekeeper.** It does not make purchase decisions — it provides policy facts. The calling agent decides whether to proceed.
+
+2. **Always check `analysis_status` before using results.** If `analysis_status === "no_content"`, policies will be empty and clauses will be an empty array.
+
+3. **SPA limitations:** Sites that render policies entirely via JavaScript may return `no_content` via server fetch. Use the `policy_text` input field to supply rendered content in these cases.
+
+4. **Boilerplate vs. unusual clauses:** `is_standard_boilerplate: true` means the clause appears in virtually every major retailer's policies (e.g., binding arbitration, jurisdiction clause). Agents should weight `is_standard_boilerplate: false` clauses more heavily when making decisions.
+
+5. **Not legal advice.** PolicyCheck identifies policy clauses programmatically. It does not provide legal interpretation or advice.
+
+6. **Seller independence:** Sellers have no access to or control over their PolicyCheck assessments. This is by design.
