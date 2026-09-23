@@ -15,10 +15,14 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-      - run: npm ci --legacy-peer-deps
+      - run: npm ci
       - run: npm run typecheck:release
       - run: npm run test:release
       - run: npm run build
+        env:
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE: build-placeholder
+          OPENAI_API_KEY: build-placeholder
       - run: npm ci --ignore-scripts
         working-directory: policycheck-mcp
       - run: npm pack --ignore-scripts

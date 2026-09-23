@@ -16,7 +16,7 @@ Responses include `policies`, `clauses`, `sources`, `coverage`, `limitations`, `
 
 ## Development and checks
 
-Use Node 24 for release checks. Install with `npm ci --legacy-peer-deps`, then `npm run dev`. Run `npm run test:release`, `npm run typecheck:release`, and `npm run build`. The dependency-free release contract suite mocks external services; it does not establish live CDP settlement or model accuracy. The build's existing global type-check bypass remains; release paths have a separate strict type-check gate.
+Use Node 24 for release checks. Install with `npm ci`, then `npm run dev`. Run `npm run test:release`, `npm run typecheck:release`, and `npm run build`. The dependency-free release contract suite mocks external services; it does not establish live CDP settlement or model accuracy. The build's existing global type-check bypass remains; release paths have a separate strict type-check gate.
 
 Required server environment: `OPENAI_API_KEY`, `POLICYCHECK_SIGNING_KEY` (32-byte Ed25519 seed, 64 hex characters). Preserve the existing signing seed on deployment. Audit persistence uses `KV_REST_API_URL` and `KV_REST_API_TOKEN`; failures are returned as `audit_recorded:false`.
 
