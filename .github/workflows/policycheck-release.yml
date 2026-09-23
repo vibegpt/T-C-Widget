@@ -31,3 +31,42 @@ jobs:
         with:
           name: policycheck-mcp-1.0.3
           path: policycheck-mcp/policycheck-mcp-1.0.3.tgz
+  production:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release-1.0.3]')
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/release-production-check.mjs
+      - name: Check unpaid production x402 challenge
+        run: node scripts/release-smoke.mjs https://policycheck.tools
+  publish-mcp:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release-1.0.3]')
+    needs: [release, production]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+      - run: npm ci --ignore-scripts
+        working-directory: policycheck-mcp
+      - name: Publish authorized 1.0.3 release
+        working-directory: policycheck-mcp
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          test "$(node -p 'require("./package.json").version')" = "1.0.3"
+          published_version=$(npm view policycheck-mcp@1.0.3 version 2>/dev/null || true)
+          if [ "$published_version" = "1.0.3" ]; then
+            echo "Version 1.0.3 is already on npm; no overwrite attempted."
+          else
+            npm publish --access public --provenance
+          fi
