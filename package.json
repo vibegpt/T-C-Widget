@@ -8,7 +8,9 @@
     "build:loader": "tsup",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:release": "node --test tests/release/*.test.mjs",
+    "typecheck:release": "tsc --noEmit -p tsconfig.release.json"
   },
   "dependencies": {
     "@coinbase/x402": "^2.1.0",

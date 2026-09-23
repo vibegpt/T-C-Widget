@@ -1,8 +1,8 @@
 {
   "name": "policycheck-mcp",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "mcpName": "io.github.vibegpt/policycheck",
-  "description": "MCP server for seller policy risk intelligence. Analyzes return policies, shipping, warranty, and terms of service for any online store. Returns risk data to inform purchase decisions.",
+  "description": "MCP server for seller policy intelligence. Analyzes return policies, shipping, warranty, and terms of service for any online store. Returns structured policy facts to inform agent purchase decisions.",
   "type": "module",
   "bin": {
     "policycheck-mcp": "./server.js"
@@ -21,7 +21,7 @@
     "seller-verification",
     "policy-analysis",
     "buyer-protection",
-    "risk-assessment",
+    "policy-facts",
     "ecommerce",
     "ai-agent",
     "agentic-commerce"

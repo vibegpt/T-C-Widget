@@ -68,3 +68,4 @@ loader-example.html
 # disabled/backup directories
 src/app-disabled/
 src/pages/
+.env*.local

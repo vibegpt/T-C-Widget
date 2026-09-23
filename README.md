@@ -1,36 +1,27 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PolicyCheck
 
-## Getting Started
+Independent, buyer-side seller policy facts for purchasing agents. Returns structured facts, matching source excerpts, retrieval provenance and an Ed25519-signed assessment. It does not issue scores, grades or purchase recommendations. A signature authenticates the issuer and payload; it does not prove that a merchant will honor a policy or that extraction is infallible.
 
-First, run the development server:
+## Inputs and interfaces
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+`POST /api/check` and `POST /api/v1/signed-assessment` accept JSON:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- `seller_url`: discover common policy paths on a seller's origin.
+- `url`: retrieve exactly the specified policy page (redirects are disclosed).
+- `policy_text` or `text`: analyze supplied text without following embedded links. An optional seller URL is a caller claim, not verified provenance.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Responses include `policies`, `clauses`, `sources`, `coverage`, `limitations`, `analysis_status`, `signed_assessment`, `signature`, and `audit_recorded`. Missing facts remain null. Source quotes are checked against retrieved text; semantic interpretation remains model-assisted. Source content hashes use SHA-256 of extracted text (supplied text is trimmed), not the original HTML bytes.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`/api/a2a` supports synchronous `message/send`. MCP: `npx -y policycheck-mcp@1.0.3`. Paid endpoint: `/api/x402/analyze` using x402 v2 on Base. OpenAPI: `public/openapi.json`; agent instructions: `public/skill.md`.
 
-## Learn More
+## Development and checks
 
-To learn more about Next.js, take a look at the following resources:
+Use Node 24 for release checks. Install with `npm ci --legacy-peer-deps`, then `npm run dev`. Run `npm run test:release`, `npm run typecheck:release`, and `npm run build`. The dependency-free release contract suite mocks external services; it does not establish live CDP settlement or model accuracy. The build's existing global type-check bypass remains; release paths have a separate strict type-check gate.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Required server environment: `OPENAI_API_KEY`, `POLICYCHECK_SIGNING_KEY` (32-byte Ed25519 seed, 64 hex characters). Preserve the existing signing seed on deployment. Audit persistence uses `KV_REST_API_URL` and `KV_REST_API_TOKEN`; failures are returned as `audit_recorded:false`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Paid service additionally needs `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `X402_PAY_TO_ADDRESS`, `X402_NETWORK` (default `eip155:8453`), and `X402_PRICE` (default `0.03`). CDP credentials are required by default. Explicit `X402_ALLOW_NON_CDP=true` permits an alternate `X402_FACILITATOR_URL`; that configuration does not establish CDP Bazaar indexing.
 
-## Deploy on Vercel
+Audit retrieval requires the same private, high-entropy `X-API-Key` used for requests (at least 24 characters); it is a bearer partition key. Shared anonymous audit history is not exposed.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See [release notes](RELEASE-1.0.3.md) for migration and production verification.
