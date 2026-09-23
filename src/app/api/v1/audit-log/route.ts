@@ -15,9 +15,9 @@ export async function OPTIONS() {
 
 export async function GET(req: NextRequest) {
   const rawApiKey = req.headers.get("x-api-key");
-  if (!rawApiKey) {
+  if (!rawApiKey || rawApiKey === "anonymous" || rawApiKey.length < 24) {
     return NextResponse.json(
-      { error: "X-API-Key header required" },
+      { error: "A private X-API-Key of at least 24 characters is required" },
       { status: 401, headers: CORS_HEADERS },
     );
   }

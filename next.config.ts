@@ -37,6 +37,10 @@ const nextConfig: NextConfig = {
         source: "/.well-known/jwks.json",
         destination: "/api/jwks",
       },
+      {
+        source: "/.well-known/agent-registration.json",
+        destination: "/api/agent-registration",
+      },
     ];
   },
   async headers() {

@@ -52,6 +52,7 @@ type SignedAssessment = {
   summary: string;
   analysis_status: string;
   confidence: string;
+  limitations?: string[];
 };
 
 type AssessmentResult = {
@@ -69,79 +70,6 @@ type VerificationResult = {
   expires_at?: string;
   verified_at?: string;
   reason?: string;
-};
-
-// ── Grade computation (display-only — not an API field) ───────────────────────
-
-type GradeResult = {
-  grade: string;
-  buyerScore: number;
-  riskScore: number;
-  color: "emerald" | "green" | "yellow" | "orange" | "red" | "slate";
-  label: string;
-};
-
-const HIDDEN_COST_FLAGS = new Set(["return_shipping_fee", "restocking_fee"]);
-const HIGH_SEVERITY_FLAGS = new Set(["no_returns", "all_sales_final", "data_sold_to_third_parties"]);
-
-function computeGrade(sa: SignedAssessment): GradeResult {
-  if (sa.analysis_status === "no_content") {
-    return { grade: "N/A", buyerScore: 0, riskScore: 0, color: "slate", label: "Unable to analyze" };
-  }
-  const nonBoilerplate = sa.clauses.filter((c) => !c.is_standard_boilerplate);
-  const hiddenCosts = sa.flags.filter((f) => HIDDEN_COST_FLAGS.has(f)).length;
-  const highSev = sa.flags.filter((f) => HIGH_SEVERITY_FLAGS.has(f)).length;
-
-  let score = 100;
-  score -= nonBoilerplate.length * 7;
-  score -= hiddenCosts * 8;
-  score -= highSev * 12;
-  if (sa.analysis_status === "partial") score -= 5;
-  if (sa.confidence === "low") score -= 5;
-  score = Math.max(0, Math.min(100, score));
-
-  if (score >= 90) return { grade: "A+", buyerScore: score, riskScore: 100 - score, color: "emerald", label: "Excellent" };
-  if (score >= 80) return { grade: "A",  buyerScore: score, riskScore: 100 - score, color: "emerald", label: "Very Good" };
-  if (score >= 70) return { grade: "B",  buyerScore: score, riskScore: 100 - score, color: "green",   label: "Good" };
-  if (score >= 60) return { grade: "C",  buyerScore: score, riskScore: 100 - score, color: "yellow",  label: "Average" };
-  if (score >= 50) return { grade: "D",  buyerScore: score, riskScore: 100 - score, color: "orange",  label: "Below Average" };
-  return             { grade: "F",  buyerScore: score, riskScore: 100 - score, color: "red",     label: "Poor" };
-}
-
-// ── Clause severity ───────────────────────────────────────────────────────────
-
-type SeverityLevel = "high" | "medium" | "low";
-
-const CLAUSE_SEVERITY: Record<string, { level: SeverityLevel; isHiddenCost?: true }> = {
-  return_shipping_fee:       { level: "high",   isHiddenCost: true },
-  restocking_fee:            { level: "high",   isHiddenCost: true },
-  no_returns:                { level: "high" },
-  all_sales_final:           { level: "high" },
-  data_sold_to_third_parties:{ level: "high" },
-  short_return_window:       { level: "medium" },
-  store_credit_only:         { level: "medium" },
-  auto_renew:                { level: "medium" },
-  price_change_no_notice:    { level: "medium" },
-  binding_arbitration:       { level: "medium" },
-  class_action_waiver:       { level: "medium" },
-  termination_at_will:       { level: "low" },
-  liability_cap:             { level: "low" },
-  jurisdiction_clause:       { level: "low" },
-};
-
-const SEVERITY_STYLES: Record<SeverityLevel, string> = {
-  high:   "bg-red-900/30 text-red-300 border-red-700/50",
-  medium: "bg-amber-900/30 text-amber-300 border-amber-700/50",
-  low:    "bg-slate-800/50 text-slate-400 border-slate-600/50",
-};
-
-const GRADE_STYLES: Record<string, { bg: string; text: string; border: string; bar: string }> = {
-  emerald: { bg: "bg-emerald-900/20", text: "text-emerald-400", border: "border-emerald-700/40", bar: "bg-emerald-500" },
-  green:   { bg: "bg-green-900/20",   text: "text-green-400",   border: "border-green-700/40",   bar: "bg-green-500" },
-  yellow:  { bg: "bg-yellow-900/20",  text: "text-yellow-400",  border: "border-yellow-700/40",  bar: "bg-yellow-500" },
-  orange:  { bg: "bg-orange-900/20",  text: "text-orange-400",  border: "border-orange-700/40",  bar: "bg-orange-500" },
-  red:     { bg: "bg-red-900/20",     text: "text-red-400",     border: "border-red-700/40",     bar: "bg-red-500" },
-  slate:   { bg: "bg-slate-800/30",   text: "text-slate-400",   border: "border-slate-600/40",   bar: "bg-slate-500" },
 };
 
 // ── Code snippets ─────────────────────────────────────────────────────────────
@@ -165,10 +93,8 @@ const FETCH_SNIPPET = `const result = await fetch("https://policycheck.tools/api
 // result.signature                   — Ed25519 signature (base64url)`;
 
 const MCP_SNIPPET = `// After: npx policycheck-mcp
-const assessment = await tools.get_signed_assessment({
-  seller_url: "https://amazon.com",
-  agent_id: "shopping-agent-v1",
-  transaction_ref: "order-12345"
+const assessment = await tools.check_seller_policies({
+  seller_url: "https://amazon.com"
 });
 
 // assessment.policies.returns.facts.window_days    // e.g. 30
@@ -261,7 +187,7 @@ function FactRow({ label, value }: { label: string; value: React.ReactNode }) {
 
 function BoolFact({ val }: { val: boolean | null }) {
   if (val === null) return <span className="text-[#64748b]">unknown</span>;
-  return val ? <span className="text-emerald-400">yes</span> : <span className="text-red-400">no</span>;
+  return <span className="text-[#e2e8f0]">{val ? "yes" : "no"}</span>;
 }
 
 function PolicyPanel({ title, summary, children }: { title: string; summary: string; children: React.ReactNode }) {
@@ -352,8 +278,6 @@ export default function HomePage() {
 
   const sa = result?.signed_assessment;
   const p = sa?.policies;
-  const grade = sa ? computeGrade(sa) : null;
-  const gs = grade ? GRADE_STYLES[grade.color] : null;
   const nonBoilerplate = sa?.clauses.filter((c) => !c.is_standard_boilerplate) ?? [];
   const boilerplate    = sa?.clauses.filter((c) => c.is_standard_boilerplate) ?? [];
 
@@ -434,53 +358,18 @@ export default function HomePage() {
         )}
 
         {/* ── Results ── */}
-        {sa && grade && gs && (
+        {sa && (
           <div className="space-y-5 mb-16">
 
-            {/* Grade card */}
-            <div className={`${gs.bg} border ${gs.border} rounded-xl p-6`}>
-              <div className="flex items-start gap-6">
-                <div className="text-center shrink-0">
-                  <div className={`text-6xl font-black ${gs.text} leading-none mb-1`}>{grade.grade}</div>
-                  <div className="text-xs text-[#64748b]">{grade.label}</div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap gap-2 items-center mb-4">
-                    <span className="text-sm font-semibold text-[#e2e8f0]">{sa.seller.domain}</span>
-                    <StatusBadge value={sa.analysis_status} />
-                    <StatusBadge value={sa.confidence} label={`confidence: ${sa.confidence}`} />
-                  </div>
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between text-xs mb-1.5">
-                        <span className="text-[#94a3b8]">Buyer protection score</span>
-                        <span className={`font-[family-name:var(--font-geist-mono)] font-semibold ${gs.text}`}>
-                          {grade.buyerScore}/100
-                        </span>
-                      </div>
-                      <div className="h-1.5 bg-[#2a2a4a] rounded-full overflow-hidden">
-                        <div
-                          className={`h-full ${gs.bar} rounded-full transition-all duration-500`}
-                          style={{ width: `${grade.buyerScore}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-[#64748b]">Risk score</span>
-                      <span className="font-[family-name:var(--font-geist-mono)] text-[#94a3b8]">{grade.riskScore}/100</span>
-                    </div>
-                  </div>
-                </div>
+            <div className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-xl p-6">
+              <div className="flex flex-wrap gap-2 items-center mb-4">
+                <span className="text-sm font-semibold">{sa.seller.domain || "Supplied policy text"}</span>
+                <StatusBadge value={sa.analysis_status} />
+                <StatusBadge value={sa.confidence} label={`extraction confidence: ${sa.confidence}`} />
               </div>
-              <p className="text-sm text-[#94a3b8] leading-relaxed mt-4 pt-4 border-t border-[#2a2a4a]/50">
-                {sa.summary}
-              </p>
-              {sa.analysis_status === "no_content" && (
-                <p className="mt-3 text-sm text-[#94a3b8]">
-                  Could not extract policy content — the site may use JavaScript rendering. Provide{" "}
-                  <code className="text-[#a78bfa]">policy_text</code> directly.
-                </p>
-              )}
+              <p className="text-sm text-[#94a3b8]">{sa.summary}</p>
+              <p className="mt-3 text-xs text-[#94a3b8]">A signature confirms who issued this assessment. It does not guarantee the merchant's claims or the applicability of a policy to a particular purchase.</p>
+              {sa.limitations?.map((item, i) => <p key={i} className="mt-2 text-xs text-[#94a3b8]">{item}</p>)}
             </div>
 
             {/* Policy facts */}
@@ -538,7 +427,7 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* Notable clauses with severity */}
+            {/* Detected clauses and sources */}
             {nonBoilerplate.length > 0 && (
               <div className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-xl p-6">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-[#64748b] mb-4">
@@ -546,20 +435,9 @@ export default function HomePage() {
                 </h3>
                 <div className="space-y-3">
                   {nonBoilerplate.map((c, i) => {
-                    const sev = CLAUSE_SEVERITY[c.id];
-                    const sevLevel = sev?.level ?? "medium";
                     return (
                       <div key={i} className="flex items-start gap-3">
-                        <div className="flex flex-col gap-1 shrink-0 mt-0.5">
-                          <span className={`inline-block px-2 py-0.5 text-xs rounded border ${SEVERITY_STYLES[sevLevel]}`}>
-                            {sevLevel}
-                          </span>
-                          {sev?.isHiddenCost && (
-                            <span className="inline-block px-2 py-0.5 text-xs rounded border bg-red-950/50 text-red-400 border-red-800/50 font-medium">
-                              hidden cost
-                            </span>
-                          )}
-                        </div>
+                        <span className="text-xs text-[#94a3b8] shrink-0">{c.found_in}</span>
                         <div className="min-w-0">
                           <div className="flex items-baseline gap-2">
                             <code className="text-[#a78bfa] text-xs font-[family-name:var(--font-geist-mono)]">{c.id}</code>
