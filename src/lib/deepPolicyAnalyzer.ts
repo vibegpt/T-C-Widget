@@ -83,6 +83,17 @@ export function normalizeExtraction(raw: unknown, sources: SourceText[]) {
   }
   return {policies:policies as DeepAnalysisResult['policies'],clauses,rejected};
 }
+export function extractionFailureReason(error: unknown): string {
+  const failure=obj(error);
+  if (failure.code==='insufficient_quota' || failure.code==='credit_balance_exhausted' || failure.type==='insufficient_quota') return 'quota_exhausted';
+  if (failure.status===401) return 'authentication_failed';
+  if (failure.status===403) return 'access_denied';
+  if (failure.status===429) return 'rate_limited';
+  if (failure.name==='APIConnectionTimeoutError' || failure.name==='AbortError') return 'timeout';
+  if (failure.name==='APIConnectionError') return 'connection_failed';
+  if (error instanceof SyntaxError) return 'invalid_response';
+  return 'service_unavailable';
+}
 async function extract(sources: SourceText[]) {
   const {default: OpenAI} = await import('openai');
   const client = new OpenAI({apiKey:process.env.OPENAI_API_KEY?.trim(),timeout:30_000,maxRetries:0});
@@ -130,8 +141,10 @@ export async function deepAnalyze(sellerUrl: string, policyText?: string | null,
     if(result.rejected) limitations.push(`${result.rejected} unsupported or malformed extraction value(s) were discarded.`);
     const status=count===0 && result.clauses.length===0 ? 'no_facts' : truncated || result.rejected>0 || (mode==='seller' && sources.length<attempted) ? 'partial' : mode==='text'?'text_provided':'complete';
     return {...base,policies:result.policies,clauses:result.clauses,analysis_method:'llm_evidence_checked',analysis_status:status,confidence:status==='no_facts'?'none':'medium',coverage:{...base.coverage,analyzed:sources.length},summary:`${sources.length} source(s) processed; ${count} policy categories and ${result.clauses.length} clauses supported by source excerpts.`};
-  } catch {
-    return {...base,analysis_method:'none',analysis_status:'extraction_failed',summary:'Policy content was retrieved, but structured extraction failed. No policy conclusions were produced.',limitations:[...limitations,'Extraction service unavailable or returned invalid data; retry this request.']};
+  } catch (error) {
+    const reason=process.env.OPENAI_API_KEY?.trim() ? extractionFailureReason(error) : 'not_configured';
+    console.warn('PolicyCheck extraction failed:',reason);
+    return {...base,analysis_method:'none',analysis_status:'extraction_failed',summary:'Policy content was retrieved, but structured extraction failed. No policy conclusions were produced.',limitations:[...limitations,`Extraction service failure: ${reason}. No policy facts were inferred.`]};
   }
 }
 export function isBillableAnalysis(result: DeepAnalysisResult): boolean {

@@ -8,7 +8,7 @@ const root=new URL('../../',import.meta.url);
 const state=globalThis.__policyTest={};
 const mocks={
   'openai':`export default class OpenAI { chat={completions:{create:async p=>{if(globalThis.__policyTest.llmError)throw new Error('offline');const task=JSON.parse(p.messages[1].content);globalThis.__policyTest.prompt=task;const source=task.sources[0];const raw=globalThis.__policyTest.llmOutput ?? {policies:{returns:{facts:{window_days:30},evidence:{window_days:{source_id:source.source_id,quote:'Items may be returned within 30 days of delivery.'}}}},clauses:[]};return {choices:[{message:{content:JSON.stringify(raw)}}]};}}}; }`,
-  '@upstash/redis':`export class Redis {async set(_key,record){globalThis.__policyTest.auditWrites++;globalThis.__policyTest.lastAudit=JSON.parse(record);} async zadd(){} pipeline(){return {hincrby(){},hset(){},async exec(){}}}}`,
+  '@upstash/redis':`export class Redis {async set(_key,record){globalThis.__policyTest.auditWrites++;globalThis.__policyTest.lastAudit=JSON.parse(record);} async zadd(){} async zrange(){if(globalThis.__policyTest.auditReadError)throw Error(globalThis.__policyTest.auditReadError);return [];} pipeline(){return {hincrby(){},hset(){},async exec(){}}}}`,
   'next/server':`export class NextRequest extends Request {} export class NextResponse extends Response {static json(value,options){return new NextResponse(JSON.stringify(value),{...options,headers:{'content-type':'application/json',...options?.headers}})}}`,
   '@x402/core/server':`export class HTTPFacilitatorClient {} export class x402ResourceServer {registerExtension(){}} export class x402HTTPResourceServer {constructor(server,routes){globalThis.__policyTest.routes=routes;} async initialize(){if(globalThis.__policyTest.initError)throw Error('init failed');} async processHTTPRequest(){return {type:'payment-verified',paymentPayload:{},paymentRequirements:{},declaredExtensions:{bazaar:{info:{}}}};} async processSettlement(payload){globalThis.__policyTest.settles++;globalThis.__policyTest.settlePayload=payload;return {success:true,transaction:'0xtest',network:'eip155:8453',payer:'0xpayer'};}}`,
   '@x402/evm/exact/server':`export function registerExactEvmScheme(){}`,
@@ -44,6 +44,7 @@ const x402=await import('../../src/app/api/x402/analyze/route.ts');
 const rest=await import('../../src/app/api/check/route.ts');
 const fetcher=await import('../../src/lib/policy-analysis.ts');
 const verifyRoute=await import('../../src/app/api/v1/verify/route.ts');
+const auditRoute=await import('../../src/app/api/v1/audit-log/route.ts');
 await import('../../policycheck-mcp/server.js');
 const mcp=state.mcp;
 const text='Items may be returned within 30 days of delivery. Refunds are sent to the original payment method. Read more at https://example.com/help.';
@@ -127,4 +128,21 @@ test('public fetch rejects private IPv4 and IPv6 destinations',()=>{
 test('verify route rejects a modified envelope',async()=>{
  const signed=assessment.signedResult(await assessment.analyzeInput({text}));signed.signed_assessment.summary='modified';
  const r=await(await verifyRoute.POST(request(signed))).json();assert.equal(r.valid,false);assert.equal(r.signature_valid,false);assert.equal(state.auditWrites,0);
+});
+
+test('extraction diagnostics identify quota and auth failures without exposing upstream details',()=>{
+ assert.equal(analyzer.extractionFailureReason({status:429,type:'insufficient_quota',code:'credit_balance_exhausted',message:'secret-key'}),'quota_exhausted');
+ assert.equal(analyzer.extractionFailureReason({status:429}),'rate_limited');
+ assert.equal(analyzer.extractionFailureReason({status:401,message:'secret-key'}),'authentication_failed');
+ assert.equal(analyzer.extractionFailureReason({message:'secret-key'}),'service_unavailable');
+ assert.equal(analyzer.extractionFailureReason(new SyntaxError('private response')),'invalid_response');
+});
+
+test('audit storage diagnostics never return raw upstream errors',async()=>{
+ state.auditReadError='fetch failed private-token';
+ try {
+  const response=await auditRoute.GET(new Request('https://policycheck.tools/api/v1/audit-log',{headers:{'x-api-key':'release-test-private-partition'}}));
+  assert.equal(response.status,503);const body=await response.json();
+  assert.equal(body.code,'storage_connection_failed');assert.doesNotMatch(JSON.stringify(body),/private-token/);
+ } finally {delete state.auditReadError;}
 });

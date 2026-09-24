@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuditLog, hashApiKey, AuditEvent } from "@/lib/audit";
+import { getAuditLog, hashApiKey, type AuditEvent } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -55,16 +55,13 @@ export async function GET(req: NextRequest) {
       { headers: CORS_HEADERS },
     );
   } catch (err) {
-    const message = (err as Error).message;
-    if (message.includes("not configured") || message.includes("ECONNREFUSED") || message.includes("fetch")) {
-      return NextResponse.json(
-        { error: "Audit storage unavailable" },
-        { status: 503, headers: CORS_HEADERS },
-      );
-    }
+    const message = err instanceof Error ? err.message : '';
+    const code = message.includes('not configured') ? 'storage_not_configured'
+      : /ECONNREFUSED|fetch|ENOTFOUND|timeout/i.test(message) ? 'storage_connection_failed'
+      : 'storage_service_failure';
     return NextResponse.json(
-      { error: message },
-      { status: 500, headers: CORS_HEADERS },
+      { error: 'Audit storage unavailable', code },
+      { status: 503, headers: CORS_HEADERS },
     );
   }
 }
