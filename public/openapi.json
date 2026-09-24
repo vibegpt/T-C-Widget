@@ -1,9 +1,9 @@
 {
-  "openapi": "3.0.0",
+  "openapi": "3.0.3",
   "info": {
-    "title": "LegalEasy API",
-    "description": "API for analyzing legal documents and generating plain-English summaries with risk assessments",
-    "version": "1.0.0"
+    "title": "PolicyCheck API",
+    "version": "2.1.0",
+    "description": "Independent seller policy facts with source excerpts and signed provenance. The calling agent makes purchase decisions."
   },
   "servers": [
     {
@@ -11,187 +11,378 @@
     }
   ],
   "paths": {
-    "/api/chatgpt/analyze": {
+    "/api/check": {
       "post": {
-        "operationId": "analyzeLegalDocument",
-        "summary": "Analyze a legal document",
-        "description": "Analyzes legal text (terms of service, privacy policy, etc.) and returns a structured summary with risk assessment. Identifies key clauses like arbitration, liability caps, data sharing, and categorizes risks.",
+        "operationId": "checkPolicies",
+        "summary": "Extract signed seller policy facts",
+        "description": "No scores or purchase verdicts. Missing facts do not mean false. Inspect status, provenance and limitations.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["text"],
                 "properties": {
+                  "seller_url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Discover common seller policy paths"
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Fetch exactly this policy page"
+                  },
+                  "policy_text": {
+                    "type": "string",
+                    "minLength": 50,
+                    "maxLength": 100000
+                  },
                   "text": {
                     "type": "string",
-                    "description": "The full text of the legal document to analyze. Can be terms of service, privacy policy, refund policy, or any legal document."
+                    "minLength": 50,
+                    "maxLength": 100000,
+                    "description": "Alias for policy_text"
                   },
-                  "document_type": {
+                  "agent_id": {
                     "type": "string",
-                    "enum": ["terms", "privacy", "refund", "shipping", "other"],
-                    "description": "Type of document being analyzed. Defaults to 'terms' if not specified.",
-                    "default": "terms"
+                    "maxLength": 256
                   },
-                  "product_name": {
+                  "transaction_ref": {
                     "type": "string",
-                    "description": "Optional: Name of the product/service (e.g., 'Zora', 'Shopify'). Helps with context."
+                    "maxLength": 256
                   }
-                }
+                },
+                "anyOf": [
+                  {
+                    "required": [
+                      "seller_url"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "url"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "policy_text"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "text"
+                    ]
+                  }
+                ]
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Successfully analyzed document",
+            "description": "Signed result; may disclose incomplete or failed extraction",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "summary": {
-                      "type": "object",
-                      "properties": {
-                        "product": {
-                          "type": "string",
-                          "description": "Name of the product/service"
-                        },
-                        "updated_at": {
-                          "type": "string",
-                          "description": "When the terms were last updated (ISO date)"
-                        },
-                        "jurisdiction": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          },
-                          "description": "Governing jurisdiction(s)"
-                        },
-                        "sections": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "key": {
-                                "type": "string",
-                                "description": "Section identifier (e.g., 'disputes', 'liability', 'wallet')"
-                              },
-                              "title": {
-                                "type": "string",
-                                "description": "Human-readable section title"
-                              },
-                              "bullets": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string"
-                                },
-                                "description": "Key points in plain English"
-                              },
-                              "body": {
-                                "type": "string",
-                                "description": "Detailed explanation"
-                              }
-                            }
-                          }
-                        }
-                      }
-                    },
-                    "risks": {
-                      "type": "object",
-                      "properties": {
-                        "arbitration": {
-                          "type": "boolean",
-                          "description": "Whether binding arbitration is required"
-                        },
-                        "classActionWaiver": {
-                          "type": "boolean",
-                          "description": "Whether class action lawsuits are waived"
-                        },
-                        "liabilityCap": {
-                          "type": "number",
-                          "nullable": true,
-                          "description": "Maximum liability amount in dollars"
-                        },
-                        "terminationAtWill": {
-                          "type": "boolean",
-                          "description": "Whether account can be terminated at any time"
-                        },
-                        "optOutDays": {
-                          "type": "number",
-                          "nullable": true,
-                          "description": "Number of days to opt out of arbitration"
-                        }
-                      }
-                    },
-                    "key_findings": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      },
-                      "description": "Most important findings in plain English"
-                    }
-                  }
+                  "$ref": "#/components/schemas/Analysis"
                 }
               }
             }
           },
           "400": {
-            "description": "Bad request - invalid input",
+            "description": "Invalid input"
+          },
+          "503": {
+            "description": "Analysis or signing unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/signed-assessment": {
+      "post": {
+        "operationId": "createSignedAssessment",
+        "summary": "Extract signed seller policy facts",
+        "description": "No scores or purchase verdicts. Missing facts do not mean false. Inspect status, provenance and limitations.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "seller_url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Discover common seller policy paths"
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Fetch exactly this policy page"
+                  },
+                  "policy_text": {
+                    "type": "string",
+                    "minLength": 50,
+                    "maxLength": 100000
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 50,
+                    "maxLength": 100000,
+                    "description": "Alias for policy_text"
+                  },
+                  "agent_id": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "transaction_ref": {
+                    "type": "string",
+                    "maxLength": 256
+                  }
+                },
+                "anyOf": [
+                  {
+                    "required": [
+                      "seller_url"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "url"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "policy_text"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "text"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed result; may disclose incomplete or failed extraction",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/Analysis"
                 }
               }
             }
           },
-          "500": {
-            "description": "Server error",
+          "400": {
+            "description": "Invalid input"
+          },
+          "503": {
+            "description": "Analysis or signing unavailable"
+          }
+        }
+      }
+    },
+    "/api/chatgpt/analyze": {
+      "post": {
+        "operationId": "analyzeLegalDocument",
+        "summary": "Extract signed seller policy facts",
+        "description": "No scores or purchase verdicts. Missing facts do not mean false. Inspect status, provenance and limitations.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "seller_url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Discover common seller policy paths"
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Fetch exactly this policy page"
+                  },
+                  "policy_text": {
+                    "type": "string",
+                    "minLength": 50,
+                    "maxLength": 100000
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 50,
+                    "maxLength": 100000,
+                    "description": "Alias for policy_text"
+                  },
+                  "agent_id": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "transaction_ref": {
+                    "type": "string",
+                    "maxLength": 256
+                  }
+                },
+                "anyOf": [
+                  {
+                    "required": [
+                      "seller_url"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "url"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "policy_text"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "text"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed result; may disclose incomplete or failed extraction",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/Analysis"
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "503": {
+            "description": "Analysis or signing unavailable"
           }
         }
       }
     },
     "/api/chatgpt/analyze-url": {
       "post": {
-        "operationId": "analyzeLegalDocumentFromURL",
-        "summary": "Analyze a legal document from a URL",
-        "description": "Fetches and analyzes a legal document from a given URL. Automatically extracts the main content and provides a structured summary with risk assessment.",
+        "operationId": "analyzePolicyUrl",
+        "summary": "Extract signed seller policy facts",
+        "description": "No scores or purchase verdicts. Missing facts do not mean false. Inspect status, provenance and limitations.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["url"],
                 "properties": {
+                  "seller_url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Discover common seller policy paths"
+                  },
                   "url": {
                     "type": "string",
-                    "description": "URL of the legal document to analyze (e.g., 'https://example.com/terms', 'https://example.com/privacy')"
+                    "format": "uri",
+                    "description": "Fetch exactly this policy page"
                   },
-                  "document_type": {
+                  "policy_text": {
                     "type": "string",
-                    "enum": ["terms", "privacy", "refund", "shipping", "other"],
-                    "description": "Type of document being analyzed. Auto-detected if not specified.",
-                    "default": "terms"
+                    "minLength": 50,
+                    "maxLength": 100000
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 50,
+                    "maxLength": 100000,
+                    "description": "Alias for policy_text"
+                  },
+                  "agent_id": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "transaction_ref": {
+                    "type": "string",
+                    "maxLength": 256
+                  }
+                },
+                "anyOf": [
+                  {
+                    "required": [
+                      "seller_url"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "url"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "policy_text"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "text"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed result; may disclose incomplete or failed extraction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Analysis"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "503": {
+            "description": "Analysis or signing unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/verify": {
+      "post": {
+        "operationId": "verifyAssessment",
+        "summary": "Verify signature and freshness separately",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "signed_assessment",
+                  "signature"
+                ],
+                "properties": {
+                  "signed_assessment": {
+                    "type": "object"
+                  },
+                  "signature": {
+                    "type": "string"
                   }
                 }
               }
@@ -200,38 +391,20 @@
         },
         "responses": {
           "200": {
-            "description": "Successfully analyzed document from URL",
+            "description": "Validity result",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "url": {
-                      "type": "string",
-                      "description": "The URL that was analyzed"
+                    "valid": {
+                      "type": "boolean"
                     },
-                    "title": {
-                      "type": "string",
-                      "description": "Page title"
+                    "signature_valid": {
+                      "type": "boolean"
                     },
-                    "content_length": {
-                      "type": "number",
-                      "description": "Length of extracted content in characters"
-                    },
-                    "summary": {
-                      "type": "object",
-                      "description": "Same structure as /api/chatgpt/analyze response"
-                    },
-                    "risks": {
-                      "type": "object",
-                      "description": "Risk flags identified"
-                    },
-                    "key_findings": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      },
-                      "description": "Most important findings"
+                    "fresh": {
+                      "type": "boolean"
                     }
                   }
                 }
@@ -239,34 +412,71 @@
             }
           },
           "400": {
-            "description": "Bad request - invalid URL",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
+            "description": "Invalid verification request"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Analysis": {
+        "type": "object",
+        "required": [
+          "analysis_status",
+          "policies",
+          "sources",
+          "limitations",
+          "signed_assessment",
+          "signature"
+        ],
+        "properties": {
+          "analysis_status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "partial",
+              "text_provided",
+              "no_content",
+              "no_facts",
+              "extraction_failed"
+            ]
+          },
+          "policies": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "clauses": {
+            "type": "array",
+            "items": {
+              "type": "object"
             }
           },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object"
             }
+          },
+          "coverage": {
+            "type": "object"
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "signed_assessment": {
+            "type": "object",
+            "description": "Exact signed v2.1 payload binding facts, provenance, timestamps, context and limitations"
+          },
+          "signature": {
+            "type": "string",
+            "description": "Ed25519 signature, base64url"
+          },
+          "audit_recorded": {
+            "type": "boolean"
           }
         }
       }
