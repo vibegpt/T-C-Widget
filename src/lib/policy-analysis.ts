@@ -25,7 +25,8 @@ async function readPage(value: string, signal: AbortSignal, redirects = 0): Prom
     const request = url.protocol === 'https:' ? httpsRequest : httpRequest;
     const req = request(url, {
       signal,
-      autoSelectFamily: true,
+      // Passed through to net.connect; Node 20 HTTP typings omit this option.
+      ...{autoSelectFamily: true},
       headers: {'User-Agent': 'PolicyCheck/1.0.3', Accept: 'text/html,text/plain'},
       lookup: (_hostname, options, callback) => {
         if (typeof options === 'object' && options.all) callback(null, addresses);
