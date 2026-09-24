@@ -5,7 +5,7 @@ import { signPayload } from './signing';
 import { writeAuditRecord, hashApiKey } from './audit';
 
 export const API_HEADERS = {'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization, X-API-Key, PAYMENT-SIGNATURE, X-PAYMENT','Access-Control-Expose-Headers':'PAYMENT-REQUIRED, PAYMENT-RESPONSE, EXTENSION-RESPONSES'};
-export type AssessmentContext={apiKey?:string;agentId?:string|null;transactionRef?:string|null;channel?:string};
+export type AssessmentContext={apiKey?:string;agentId?:string|null;transactionRef?:string|null;channel?:string;event?:'check'|'signed_assessment'};
 export function requestContext(req: {headers: Headers}, body: Record<string,unknown>, channel: string): AssessmentContext {
   return {apiKey:req.headers.get('x-api-key') || 'anonymous',agentId:typeof body.agent_id==='string'?body.agent_id.slice(0,256):null,transactionRef:typeof body.transaction_ref==='string'?body.transaction_ref.slice(0,256):null,channel};
 }
@@ -29,5 +29,5 @@ export function signedResult(result: DeepAnalysisResult, context: AssessmentCont
   return {...result,flags:envelope.flags,signed_assessment:envelope,...signPayload(envelope),verification_url:'https://policycheck.tools/api/v1/verify',jwks_url:'https://policycheck.tools/.well-known/jwks.json'};
 }
 export async function recordAssessment(result: ReturnType<typeof signedResult>, context: AssessmentContext={}, latencyMs=0) {
-  return writeAuditRecord({api_key_hash:hashApiKey(context.apiKey || 'anonymous'),event:'signed_assessment',seller_domain:result.signed_assessment.seller.domain,agent_id:context.agentId ?? null,transaction_ref:context.transactionRef ?? null,analysis_status:result.analysis_status,confidence:result.confidence,flags:result.flags,clause_count:result.clauses.length,non_boilerplate_count:result.clauses.filter(c=>!c.is_standard_boilerplate).length,signed:true,verified:null,assessment_id:result.signed_assessment.assessment_id,ip:null,channel:context.channel || 'rest',latency_ms:latencyMs});
+  return writeAuditRecord({api_key_hash:hashApiKey(context.apiKey || 'anonymous'),event:context.event || 'signed_assessment',seller_domain:result.signed_assessment.seller.domain,agent_id:context.agentId ?? null,transaction_ref:context.transactionRef ?? null,analysis_status:result.analysis_status,confidence:result.confidence,flags:result.flags,clause_count:result.clauses.length,non_boilerplate_count:result.clauses.filter(c=>!c.is_standard_boilerplate).length,signed:true,verified:null,assessment_id:result.signed_assessment.assessment_id,ip:null,channel:context.channel || 'rest',latency_ms:latencyMs});
 }

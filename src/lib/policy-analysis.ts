@@ -25,9 +25,10 @@ async function readPage(value: string, signal: AbortSignal, redirects = 0): Prom
     const request = url.protocol === 'https:' ? httpsRequest : httpRequest;
     const req = request(url, {
       signal,
+      autoSelectFamily: true,
       headers: {'User-Agent': 'PolicyCheck/1.0.3', Accept: 'text/html,text/plain'},
       lookup: (_hostname, options, callback) => {
-        if (typeof options === 'object' && options.all) callback(null, [{address: pinned.address, family: pinned.family}]);
+        if (typeof options === 'object' && options.all) callback(null, addresses);
         else callback(null, pinned.address, pinned.family);
       },
     }, res => {

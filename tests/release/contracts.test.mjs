@@ -8,7 +8,7 @@ const root=new URL('../../',import.meta.url);
 const state=globalThis.__policyTest={};
 const mocks={
   'openai':`export default class OpenAI { chat={completions:{create:async p=>{if(globalThis.__policyTest.llmError)throw new Error('offline');const task=JSON.parse(p.messages[1].content);globalThis.__policyTest.prompt=task;const source=task.sources[0];const raw=globalThis.__policyTest.llmOutput ?? {policies:{returns:{facts:{window_days:30},evidence:{window_days:{source_id:source.source_id,quote:'Items may be returned within 30 days of delivery.'}}}},clauses:[]};return {choices:[{message:{content:JSON.stringify(raw)}}]};}}}; }`,
-  '@upstash/redis':`export class Redis {async set(){globalThis.__policyTest.auditWrites++;} async zadd(){} pipeline(){return {hincrby(){},hset(){},async exec(){}}}}`,
+  '@upstash/redis':`export class Redis {async set(_key,record){globalThis.__policyTest.auditWrites++;globalThis.__policyTest.lastAudit=JSON.parse(record);} async zadd(){} pipeline(){return {hincrby(){},hset(){},async exec(){}}}}`,
   'next/server':`export class NextRequest extends Request {} export class NextResponse extends Response {static json(value,options){return new NextResponse(JSON.stringify(value),{...options,headers:{'content-type':'application/json',...options?.headers}})}}`,
   '@x402/core/server':`export class HTTPFacilitatorClient {} export class x402ResourceServer {registerExtension(){}} export class x402HTTPResourceServer {constructor(server,routes){globalThis.__policyTest.routes=routes;} async initialize(){if(globalThis.__policyTest.initError)throw Error('init failed');} async processHTTPRequest(){return {type:'payment-verified',paymentPayload:{},paymentRequirements:{},declaredExtensions:{bazaar:{info:{}}}};} async processSettlement(payload){globalThis.__policyTest.settles++;globalThis.__policyTest.settlePayload=payload;return {success:true,transaction:'0xtest',network:'eip155:8453',payer:'0xpayer'};}}`,
   '@x402/evm/exact/server':`export function registerExactEvmScheme(){}`,
@@ -94,9 +94,9 @@ test('expired assessment keeps historical signature validity but is not fresh',(
  const r=signing.checkAssessment(a,signing.signPayload(a).signature);assert.equal(r.signature_valid,true);assert.equal(r.fresh,false);assert.equal(r.valid,false);
 });
 test('REST and A2A both return signed facts and await audit recording',async()=>{
- const r=await (await rest.POST(request({text}))).json();assert.equal(signing.verifySignature(r.signed_assessment,r.signature),true);assert.equal(r.audit_recorded,true);
+ const r=await (await rest.POST(request({text}))).json();assert.equal(signing.verifySignature(r.signed_assessment,r.signature),true);assert.equal(r.audit_recorded,true);assert.equal(state.lastAudit.event,'check');
  const a=await (await a2a.POST(request({jsonrpc:'2.0',id:0,method:'message/send',params:{message:{parts:[{kind:'data',data:{policy_text:text}}]}}}))).json();
- const facts=a.result.artifacts[0].parts[0].data;assert.equal(a.id,0);assert.equal(signing.verifySignature(facts.signed_assessment,facts.signature),true);assert.equal(state.auditWrites,2);
+ const facts=a.result.artifacts[0].parts[0].data;assert.equal(a.id,0);assert.equal(signing.verifySignature(facts.signed_assessment,facts.signature),true);assert.equal(state.auditWrites,2);assert.equal(state.lastAudit.event,'signed_assessment');
 });
 test('x402 does not settle failed, empty, or unsupported analyses',async()=>{
  state.fetchError=true;let response=await x402.POST(request({url:'https://example.com/returns'}));assert.equal(response.status,422);assert.equal(state.settles,0);

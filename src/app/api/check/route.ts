@@ -8,7 +8,7 @@ export async function POST(req:NextRequest) {
   const start=Date.now();
   try {
     const body=await req.json();
-    const context=requestContext(req,body,'rest');
+    const context={...requestContext(req,body,'rest'),event:'check' as const};
     const result=signedResult(await analyzeInput(body),context);
     const audit_recorded=await recordAssessment(result,context,Date.now()-start);
     return NextResponse.json({...result,audit_recorded},{headers:API_HEADERS});
