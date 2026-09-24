@@ -31,6 +31,7 @@ async function callA2A(message) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(65_000),
   });
 
   if (!res.ok) {
@@ -48,19 +49,31 @@ async function callA2A(message) {
 
 // ── Tool definitions ────────────────────────────────────────────────────────
 
+// Shared annotations: tools are read-only, call an external API, and return
+// content extracted from arbitrary seller websites (untrusted by definition).
+// untrustedContentHint per WebMCP / Chrome 149 spec.
+const TOOL_ANNOTATIONS = {
+  readOnlyHint: true,
+  openWorldHint: true,
+  untrustedContentHint: true,
+};
+
 const TOOLS = [
   {
     name: "analyze_seller",
     description: `Comprehensive policy analysis for an online seller.
 
 Provide a URL to a specific policy page (return policy, terms of service, etc.)
-and get a full risk assessment including:
-- Risk level (low / medium / high / critical)
-- Buyer protection score (0-100)
-- Key findings in plain English
-- Factual summary of policy risks
+and get structured policy facts:
+- Detected clauses with category and description (e.g. restocking_fee, binding_arbitration)
+- is_standard_boilerplate labels distinguishing routine legal language from notable terms
+- Policy positives (e.g. free returns, extended warranty)
+- Source excerpts, provenance, analysis status, and confidence level
+- Ed25519-signed assessment and public key URL
 
-Use this to get seller policy risk data to inform purchase decisions.`,
+PolicyCheck returns facts only. It does not score, grade, or recommend; the
+calling agent applies its own judgment to the facts.`,
+    annotations: TOOL_ANNOTATIONS,
     inputSchema: {
       type: "object",
       properties: {
@@ -74,14 +87,16 @@ Use this to get seller policy risk data to inform purchase decisions.`,
     },
   },
   {
-    name: "quick_risk_check",
-    description: `Quick risk check for an online seller.
+    name: "check_seller_policies",
+    description: `Quick policy check for an online seller.
 
 Provide the seller's base URL and PolicyCheck will automatically locate
 common policy pages (returns, shipping, terms) and analyze them.
 
-Returns an overall risk score plus per-policy breakdowns.
-Use this for a fast assessment when you only have the store URL.`,
+Returns structured policy facts per policy page: detected clauses with
+standard-boilerplate labels, positives, and a factual summary.
+Use this for fast pre-purchase screening when you only have the store URL.`,
+    annotations: TOOL_ANNOTATIONS,
     inputSchema: {
       type: "object",
       properties: {
@@ -96,12 +111,13 @@ Use this for a fast assessment when you only have the store URL.`,
   },
   {
     name: "check_policy_text",
-    description: `Analyze raw policy text for risks.
+    description: `Analyze raw policy text.
 
 Paste the full text of a policy document (return policy, terms of service, etc.)
-and get a risk assessment without needing a URL.
+and get structured policy facts without needing a URL.
 
 Useful when the policy text has already been extracted or copied.`,
+    annotations: TOOL_ANNOTATIONS,
     inputSchema: {
       type: "object",
       properties: {
@@ -118,16 +134,18 @@ Useful when the policy text has already been extracted or copied.`,
 // ── Server setup ────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: "policycheck-mcp", version: "1.0.0" },
+  { name: "policycheck-mcp", version: "1.0.3" },
   { capabilities: { tools: {} } },
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
+  const { name, arguments: args = {} } = request.params;
 
   try {
+    const field = name === "check_policy_text" ? "text" : name === "analyze_seller" ? "url" : "seller_url";
+    if (typeof args[field] !== "string" || !args[field].trim()) throw new Error(`${field} must be a non-empty string`);
     let task;
 
     switch (name) {
@@ -141,7 +159,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       }
 
-      case "quick_risk_check": {
+      // "quick_risk_check" kept as a hidden alias for callers pinned to <=1.0.2
+      case "quick_risk_check":
+      case "check_seller_policies": {
         task = await callA2A({
           role: "user",
           parts: [
@@ -158,7 +178,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "check_policy_text": {
         task = await callA2A({
           role: "user",
-          parts: [{ kind: "text", text: args.text }],
+          parts: [{ kind: "data", data: { policy_text: args.text }, mimeType: "application/json" }],
         });
         break;
       }
@@ -175,10 +195,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const artifactData = task.artifacts?.[0]?.parts?.find((p) => p.kind === "data")?.data;
 
     const output = artifactData
-      ? JSON.stringify({ success: true, ...artifactData }, null, 2)
+      ? JSON.stringify({ ...artifactData, success: !["no_content", "no_facts", "extraction_failed"].includes(artifactData.analysis_status) }, null, 2)
       : statusText || JSON.stringify(task, null, 2);
 
-    return { content: [{ type: "text", text: output }] };
+    return { content: [{ type: "text", text: output }], isError: !artifactData || ["no_content", "no_facts", "extraction_failed"].includes(artifactData.analysis_status) };
   } catch (error) {
     return {
       content: [{ type: "text", text: JSON.stringify({ error: error.message, tool: name }) }],

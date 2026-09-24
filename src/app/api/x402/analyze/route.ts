@@ -7,26 +7,40 @@ import {
 import { registerExactEvmScheme } from "@x402/evm/exact/server";
 import { createFacilitatorConfig } from "@coinbase/x402";
 import { declareDiscoveryExtension, bazaarResourceServerExtension } from "@x402/extensions/bazaar";
-import { deepAnalyze } from "@/lib/deepPolicyAnalyzer";
+import { isBillableAnalysis } from "@/lib/deepPolicyAnalyzer";
+import { analyzeInput, signedResult, recordAssessment, requestContext, API_HEADERS } from "@/lib/assessment";
+import { InputError, parsePolicyInput } from "@/lib/policy-input";
+import { POLICY_DESCRIPTION, INPUT_SCHEMA, OUTPUT_EXAMPLE } from "@/lib/discovery";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 // Lazy singleton — initialized once per cold start
 let httpServer: x402HTTPResourceServer | null = null;
 let initPromise: Promise<x402HTTPResourceServer> | null = null;
+
+// Set during init so the GET diagnostic can report which facilitator is actually in use.
+let facilitatorMode: "cdp" | "fallback" | "uninitialized" = "uninitialized";
+let facilitatorUrl: string | null = null;
 
 function getServer(): Promise<x402HTTPResourceServer> {
   if (httpServer) return Promise.resolve(httpServer);
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
-    // Use CDP facilitator (mainnet) when credentials are set, otherwise x402.org (testnet)
-    const cdpKeyId = process.env.CDP_API_KEY_ID;
-    const cdpKeySecret = process.env.CDP_API_KEY_SECRET;
-
-    const facilitatorConfig = cdpKeyId && cdpKeySecret
-      ? createFacilitatorConfig(cdpKeyId, cdpKeySecret)
-      : { url: process.env.X402_FACILITATOR_URL || "https://www.x402.org/facilitator" };
+    const cdpKeyId = process.env.CDP_API_KEY_ID?.trim();
+    const cdpKeySecret = process.env.CDP_API_KEY_SECRET?.trim();
+    const usingCdpFacilitator = Boolean(cdpKeyId && cdpKeySecret);
+    const fallbackFacilitatorUrl = process.env.X402_FACILITATOR_URL || "https://www.x402.org/facilitator";
+    if (!usingCdpFacilitator && process.env.X402_ALLOW_NON_CDP !== "true") {
+      throw new Error("CDP facilitator credentials are required. Non-CDP mode must be explicitly enabled with X402_ALLOW_NON_CDP=true.");
+    }
+    facilitatorMode = usingCdpFacilitator ? "cdp" : "fallback";
+    facilitatorUrl = usingCdpFacilitator ? "https://api.cdp.coinbase.com/platform/v2/x402" : fallbackFacilitatorUrl;
+    if (!usingCdpFacilitator) console.warn("[x402] Explicit non-CDP mode: CDP Bazaar indexing is unavailable");
+    const facilitatorConfig = usingCdpFacilitator
+      ? createFacilitatorConfig(cdpKeyId as string, cdpKeySecret as string)
+      : { url: fallbackFacilitatorUrl };
 
     const facilitator = new HTTPFacilitatorClient(facilitatorConfig);
 
@@ -45,36 +59,14 @@ function getServer(): Promise<x402HTTPResourceServer> {
           payTo: (process.env.X402_PAY_TO_ADDRESS || "").trim(),
           price,
         },
-        description: "PolicyCheck premium analysis — full risk assessment with detailed findings",
+        description: POLICY_DESCRIPTION,
         mimeType: "application/json",
         extensions: {
           ...declareDiscoveryExtension({
-            input: {
-              url: "https://example.com/policies/refund-policy",
-            },
-            inputSchema: {
-              properties: {
-                url: { type: "string", description: "URL of a policy page to analyse" },
-                sellerUrl: { type: "string", description: "Seller homepage URL — auto-discovers all policy pages" },
-                text: { type: "string", description: "Raw policy/terms text to analyse" },
-              },
-            },
+            input: { text: "Items may be returned within 30 days of delivery. Refunds are sent to the original payment method." },
+            inputSchema: INPUT_SCHEMA,
             bodyType: "json",
-            output: {
-              example: {
-                payment: { settled: true, transaction: "0x...", network: "eip155:8453", payer: "0x..." },
-                analysis: {
-                  riskLevel: "high",
-                  buyerProtectionScore: 35,
-                  summary: "High risk indicators detected. 3 of 5 policy categories flagged. Binding arbitration limits dispute resolution. Class action waiver present. No refund policy.",
-                  keyFindings: [
-                    "Binding arbitration clause found",
-                    "Class action waiver present",
-                    "No refund policy",
-                  ],
-                },
-              },
-            },
+            output: { example: OUTPUT_EXAMPLE },
           }),
         },
       },
@@ -93,7 +85,11 @@ function getServer(): Promise<x402HTTPResourceServer> {
 }
 
 export async function POST(req: NextRequest) {
+  const start = Date.now();
   try {
+    const body = await req.json();
+    parsePolicyInput(body); // Reject invalid input before payment processing.
+    const context = requestContext(req, body, "x402");
     const server = await getServer();
 
     const adapter = {
@@ -117,40 +113,28 @@ export async function POST(req: NextRequest) {
         result.response.body != null ? JSON.stringify(result.response.body) : undefined,
         {
           status: result.response.status,
-          headers: result.response.headers,
+          headers: { ...result.response.headers, ...API_HEADERS },
         },
       );
     }
 
     // Payment verified → validate & analyse first, settle only on success
     if (result.type === "payment-verified") {
-      // Parse and validate the request body before settling
-      const body = await req.json();
-      const sellerUrl = body.sellerUrl || body.seller_url || body.url;
-      const policyText = body.text || body.policy_text;
-
-      if (!sellerUrl && !policyText) {
-        return NextResponse.json(
-          { error: "Provide 'url', 'sellerUrl', or 'text' in request body" },
-          { status: 400 },
-        );
+      const analysisResult = signedResult(await analyzeInput(body), context);
+      if (!isBillableAnalysis(analysisResult)) {
+        const audit_recorded = await recordAssessment(analysisResult, context, Date.now()-start);
+        return NextResponse.json({ error: "No billable analysis produced", payment: {settled:false}, analysis: analysisResult, audit_recorded }, {
+          status: analysisResult.analysis_status === "extraction_failed" ? 503 : 422, headers: API_HEADERS,
+        });
       }
-
-      const analysisResult = await deepAnalyze(
-        sellerUrl || "direct text analysis",
-        policyText || null,
-      );
-
-      const flags = analysisResult.clauses.map((c) => c.id);
-      const fetch_method = policyText
-        ? (sellerUrl ? "client_provided" : "text_input")
-        : "server_fetch";
-
-      // Analysis succeeded — now settle the payment
+      // The signed result is ready before settlement. The resource metadata is
+      // required by CDP discovery even when a client omits it from its payload.
+      const paymentPayload = { ...result.paymentPayload, resource: {
+        url: "https://policycheck.tools/api/x402/analyze",
+        description: POLICY_DESCRIPTION, mimeType: "application/json",
+      }};
       const settleResult = await server.processSettlement(
-        result.paymentPayload,
-        result.paymentRequirements,
-        result.declaredExtensions,
+        paymentPayload, result.paymentRequirements, result.declaredExtensions,
       );
 
       if (!settleResult.success) {
@@ -159,13 +143,12 @@ export async function POST(req: NextRequest) {
             error: "Payment settlement failed",
             reason: "errorReason" in settleResult ? settleResult.errorReason : "unknown",
           },
-          { status: 402 },
+          { status: 402, headers: API_HEADERS },
         );
       }
 
-      const headers: Record<string, string> = {
-        "Access-Control-Allow-Origin": "*",
-      };
+      const headers: Record<string, string> = { ...API_HEADERS };
+      const audit_recorded = await recordAssessment(analysisResult, context, Date.now()-start);
       if ("headers" in settleResult && settleResult.headers) {
         Object.assign(headers, settleResult.headers);
       }
@@ -178,48 +161,36 @@ export async function POST(req: NextRequest) {
             network: settleResult.network,
             payer: settleResult.payer,
           },
-          analysis: { ...analysisResult, flags, fetch_method },
+          analysis: analysisResult,
+          audit_recorded,
         },
         { headers },
       );
     }
 
     // "no-payment-required" — shouldn't happen for a paid route
-    return NextResponse.json({ error: "Unexpected state" }, { status: 500 });
+    return NextResponse.json({ error: "Unexpected state" }, { status: 500, headers: API_HEADERS });
   } catch (err) {
     console.error("x402 analyze error:", err);
     return NextResponse.json(
-      { error: "Internal server error", details: (err as Error).message },
-      { status: 500 },
+      { error: err instanceof InputError || err instanceof SyntaxError ? (err as Error).message : "Paid analysis unavailable" },
+      { status: err instanceof InputError || err instanceof SyntaxError ? 400 : 503, headers: API_HEADERS },
     );
   }
 }
 
 export async function GET() {
+  let initialized=false;
+  try { await getServer(); initialized=true; } catch { /* Report readiness, not secrets. */ }
   return NextResponse.json({
-    endpoint: "/api/x402/analyze",
-    protocol: "x402 (HTTP 402 Payments)",
-    price: process.env.X402_PRICE || "$0.03",
-    network: process.env.X402_NETWORK || "eip155:8453",
-    description:
-      "Paid policy analysis endpoint. POST with {url}, {sellerUrl}, or {text}. " +
-      "First request returns 402 with payment requirements. " +
-      "Re-send with X-PAYMENT header after signing.",
-    usage: {
-      method: "POST",
-      body: { url: "https://example.com/terms" },
-      headers: { "Content-Type": "application/json" },
-    },
-  });
+    endpoint: "/api/x402/analyze", protocol: "x402 v2", initialized,
+    facilitator: { mode: facilitatorMode, url: facilitatorUrl,
+      bazaarIndexable: initialized && facilitatorMode === "cdp",
+      note: "Configuration readiness only; validate the live 402 response and settlement to confirm indexing." },
+    price: process.env.X402_PRICE || "0.03", network: process.env.X402_NETWORK || "eip155:8453",
+    description: POLICY_DESCRIPTION,
+    usage: { method: "POST", body: {seller_url:"https://example.com"}, payment_header:"PAYMENT-SIGNATURE" },
+    charging: "No charge for no_content, no_facts, or extraction_failed. Evidence-backed partial results are billable and disclose limitations.",
+  }, {status:initialized?200:503,headers:API_HEADERS});
 }
-
-export async function OPTIONS() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-PAYMENT",
-    },
-  });
-}
+export async function OPTIONS() { return new Response(null,{status:204,headers:API_HEADERS}); }

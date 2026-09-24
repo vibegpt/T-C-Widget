@@ -1,114 +1,124 @@
 {
-  "version": "2.0.0",
-  "description": "Registry of detectable clause types. IDs are stable within a major version — safe to write agent rules against.",
+  "version": "2.1.0",
+  "description": "Clause identifiers are factual classifications. Boilerplate eligibility is source-dependent and never a purchase verdict.",
   "clauses": [
     {
       "id": "return_shipping_fee",
       "category": "returns",
       "description": "Customer bears cost of return shipping",
-      "is_standard_boilerplate": false
+      "standard_boilerplate_in": []
     },
     {
       "id": "restocking_fee",
       "category": "returns",
       "description": "A percentage or flat fee is deducted from refunds",
-      "is_standard_boilerplate": false
+      "standard_boilerplate_in": []
     },
     {
       "id": "short_return_window",
       "category": "returns",
       "description": "Return window is shorter than 30 days",
-      "is_standard_boilerplate": false
+      "standard_boilerplate_in": []
     },
     {
       "id": "store_credit_only",
       "category": "returns",
       "description": "Refunds issued as store credit, not to original payment method",
-      "is_standard_boilerplate": false
+      "standard_boilerplate_in": []
     },
     {
       "id": "no_refund_opened",
       "category": "returns",
       "description": "Opened or used items cannot be returned",
-      "is_standard_boilerplate": false
+      "standard_boilerplate_in": []
     },
     {
       "id": "final_sale",
       "category": "returns",
       "description": "Clearance or sale items are non-refundable",
-      "is_standard_boilerplate": false
+      "standard_boilerplate_in": []
     },
     {
       "id": "exchange_only",
       "category": "returns",
-      "description": "Exchanges only — no cash refunds offered",
-      "is_standard_boilerplate": false
+      "description": "Exchanges only \u2014 no cash refunds offered",
+      "standard_boilerplate_in": []
     },
     {
       "id": "no_refund",
       "category": "returns",
-      "description": "All sales final — no refunds at all",
-      "is_standard_boilerplate": false
+      "description": "All sales final \u2014 no refunds at all",
+      "standard_boilerplate_in": []
     },
     {
       "id": "binding_arbitration",
       "category": "legal",
-      "description": "Mandatory binding arbitration for disputes — no court litigation",
-      "is_standard_boilerplate": true
+      "description": "Mandatory binding arbitration for disputes \u2014 no court litigation",
+      "standard_boilerplate_in": [
+        "terms_of_service"
+      ]
     },
     {
       "id": "class_action_waiver",
       "category": "legal",
       "description": "Waives right to participate in class action lawsuits",
-      "is_standard_boilerplate": true
+      "standard_boilerplate_in": [
+        "terms_of_service"
+      ]
     },
     {
       "id": "liability_cap",
       "category": "legal",
       "description": "Seller liability capped at purchase price or less",
-      "is_standard_boilerplate": true
+      "standard_boilerplate_in": [
+        "terms_of_service"
+      ]
     },
     {
       "id": "jurisdiction_clause",
       "category": "legal",
       "description": "Disputes governed by a specific state or country's law",
-      "is_standard_boilerplate": true
+      "standard_boilerplate_in": [
+        "terms_of_service"
+      ]
     },
     {
       "id": "termination_at_will",
       "category": "legal",
       "description": "Seller can terminate account without cause or notice",
-      "is_standard_boilerplate": true
+      "standard_boilerplate_in": [
+        "terms_of_service"
+      ]
     },
     {
       "id": "auto_renewal",
       "category": "pricing",
       "description": "Subscriptions or services auto-renew",
-      "is_standard_boilerplate": false
+      "standard_boilerplate_in": []
     },
     {
       "id": "price_adjustment_clause",
       "category": "pricing",
       "description": "Seller can change prices after order placement",
-      "is_standard_boilerplate": false
+      "standard_boilerplate_in": []
     },
     {
       "id": "hidden_fees",
       "category": "pricing",
       "description": "Fees that are undisclosed or only revealed at checkout",
-      "is_standard_boilerplate": false
+      "standard_boilerplate_in": []
     },
     {
       "id": "data_selling",
       "category": "privacy",
       "description": "User data is sold or shared commercially with third parties",
-      "is_standard_boilerplate": false
+      "standard_boilerplate_in": []
     },
     {
       "id": "broad_data_collection",
       "category": "privacy",
       "description": "Collects more data than reasonably needed for the service",
-      "is_standard_boilerplate": false
+      "standard_boilerplate_in": []
     }
   ]
 }

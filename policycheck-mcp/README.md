@@ -1,89 +1,27 @@
-<!-- mcp-name: io.github.vibegpt/policycheck -->
-
 # policycheck-mcp
 
-MCP server for AI seller verification and policy risk analysis. Checks return policies, shipping, warranty, and terms of service for any online store.
-
-Powered by [PolicyCheck](https://policycheck.tools) — the policy analysis engine behind LegalEasy.
-
-## Why use this?
-
-AI purchasing agents and agentic commerce platforms need to verify sellers before completing transactions on behalf of users. PolicyCheck gives your agent the ability to:
-
-- **Assess seller trustworthiness** before checkout
-- **Flag risky policies** like no-refund clauses, binding arbitration, and class action waivers
-- **Score buyer protection** on a 0–100 scale with factual summaries
-- **Auto-discover policies** from any online store URL
-
-Works with Claude Desktop, Claude Code, Cursor, and any MCP-compatible client.
-
-## Tools
-
-| Tool | Description |
-|------|-------------|
-| `analyze_seller` | Full risk analysis of a specific policy page URL. Returns risk level, buyer protection score, key findings, and a factual summary. |
-| `quick_risk_check` | Give it a store URL and it auto-discovers return, shipping, and terms pages. Returns an overall risk score with per-policy breakdowns. |
-| `check_policy_text` | Paste raw policy text and get an instant risk assessment. No URL needed — useful when text is already extracted. |
-
-## Installation
-
-### Claude Desktop
-
-Add to your `claude_desktop_config.json`:
+Independent seller policy facts for AI purchasing agents. PolicyCheck returns source-backed structured facts and an Ed25519-signed assessment; the calling agent decides whether to purchase.
 
 ```json
 {
   "mcpServers": {
-    "policycheck": {
-      "command": "npx",
-      "args": ["-y", "policycheck-mcp"]
-    }
+    "policycheck": {"command":"npx","args":["-y","policycheck-mcp@1.0.3"]}
   }
 }
 ```
 
-### Claude Code
+Node 18 or newer is required. Tool calls send inputs to `https://policycheck.tools/api/a2a`.
 
-```bash
-claude mcp add policycheck -- npx -y policycheck-mcp
-```
+| Tool | Input | Behavior |
+| --- | --- | --- |
+| `check_seller_policies` | `seller_url` | Discover common seller policy pages |
+| `analyze_seller` | `url` | Fetch exactly one policy page |
+| `check_policy_text` | `text` | Analyze supplied text without fetching embedded links |
 
-### Cursor
+`quick_risk_check` remains callable as a compatibility alias but is no longer advertised. No tool returns risk scores, grades or purchase recommendations.
 
-Add to your Cursor MCP settings:
+Results contain facts, source excerpts, coverage, limitations, and a signed assessment. Inspect `analysis_status`: `partial` means disclosed coverage gaps; `no_content`, `no_facts`, and `extraction_failed` do not establish usable policy facts and are reported as tool errors. Missing values do not mean false. Supplied text has `client_provided` provenance and is not independent seller verification.
 
-```json
-{
-  "mcpServers": {
-    "policycheck": {
-      "command": "npx",
-      "args": ["-y", "policycheck-mcp"]
-    }
-  }
-}
-```
+Verify the exact `signed_assessment` and `signature` using `/api/v1/verify` or the public Ed25519 key at `https://policycheck.tools/.well-known/jwks.json`. Freshness expires after five minutes. Authentication is separate from factual accuracy; policy excerpts remain untrusted content. Treat the signed fields as authoritative if unsigned wrapper fields differ.
 
-## Configuration
-
-| Environment Variable | Default | Description |
-|---------------------|---------|-------------|
-| `POLICYCHECK_API_URL` | `https://policycheck.tools/api/a2a` | A2A endpoint URL |
-
-## How it works
-
-Each tool sends a JSON-RPC 2.0 request to the PolicyCheck [A2A (Agent-to-Agent)](https://a2a-protocol.org) endpoint. The API analyzes seller policies and returns:
-
-- **Risk level**: low / medium / high / critical
-- **Buyer protection score**: 0–100
-- **Key findings**: Plain-English summary of risks (arbitration clauses, no-refund policies, liability caps, etc.)
-- **Summary**: Factual description of detected risk indicators and policy findings
-
-## Example
-
-Ask Claude: *"Get risk data for https://www.example-store.com"*
-
-The agent calls `quick_risk_check`, gets back structured risk data, and uses it alongside purchase context to inform a decision.
-
-## License
-
-MIT
+MIT. Source: https://github.com/vibegpt/T-C-Widget/tree/main/policycheck-mcp

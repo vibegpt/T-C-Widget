@@ -36,6 +36,8 @@ export type AuditRecord = {
   verified: boolean | null; // non-null for verify events
   assessment_id: string | null; // for verify events
   ip: string | null;
+  channel?: string;
+  latency_ms?: number;
 };
 
 export type AuditLogFilters = {
@@ -84,8 +86,8 @@ function metaKey(apiKeyHash: string): string {
 
 // ── Write (fire-and-forget) ───────────────────────────────────────────────────
 
-export function writeAuditRecord(record: Omit<AuditRecord, "id" | "timestamp" | "timestamp_unix">): void {
-  // Fire-and-forget — never throw, never await
+export async function writeAuditRecord(record: Omit<AuditRecord, "id" | "timestamp" | "timestamp_unix">): Promise<boolean> {
+  // Awaited by every response path; telemetry failure is reported without failing analysis.
   const id = randomUUID();
   const now = new Date();
   const timestampUnix = Math.floor(now.getTime() / 1000);
@@ -101,7 +103,7 @@ export function writeAuditRecord(record: Omit<AuditRecord, "id" | "timestamp" | 
   const iKey = indexKey(full.api_key_hash);
   const mKey = metaKey(full.api_key_hash);
 
-  void (async () => {
+  return (async () => {
     try {
       const redis = getRedis();
 
@@ -127,8 +129,10 @@ export function writeAuditRecord(record: Omit<AuditRecord, "id" | "timestamp" | 
       }
       pipeline.hset(mKey, { last_seen: now.toISOString() });
       await pipeline.exec();
+      return true;
     } catch {
-      // Never propagate audit errors to callers
+      console.warn("PolicyCheck audit storage unavailable");
+      return false;
     }
   })();
 }
@@ -149,11 +153,12 @@ export async function getAuditLog(
   // Get keys in time range from sorted set (ascending, reversed in JS)
   // Note: cast required — Upstash TS overload for byScore+number needs explicit any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const keysAsc: string[] = await (redis as any).zrange(iKey, from, to, {
+  const keysAsc: string[] = await (redis as any).zrange(iKey, to, from, {
     byScore: true,
+    rev: true,
     limit: { offset: 0, count: limit * 3 },
   });
-  const keys = [...keysAsc].reverse();
+  const keys = [...keysAsc];
 
   if (!keys || keys.length === 0) return [];
 
@@ -239,11 +244,12 @@ export async function getComplianceReport(
   // For bounded periods, scan index and aggregate from records
   const iKey = indexKey(apiKeyHash);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const keysAsc: string[] = await (redis as any).zrange(iKey, from, now, {
+  const keysAsc: string[] = await (redis as any).zrange(iKey, now, from, {
     byScore: true,
+    rev: true,
     limit: { offset: 0, count: 1000 },
   });
-  const keys = [...keysAsc].reverse();
+  const keys = [...keysAsc];
 
   if (!keys || keys.length === 0) return emptyReport(period);
 
