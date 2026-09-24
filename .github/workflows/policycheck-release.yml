@@ -1,5 +1,6 @@
 name: PolicyCheck release checks
 on:
+  workflow_dispatch:
   push:
     branches: [main, release/policycheck-1.0.3]
   pull_request:
@@ -32,7 +33,7 @@ jobs:
           name: policycheck-mcp-1.0.3
           path: policycheck-mcp/policycheck-mcp-1.0.3.tgz
   production:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release-1.0.3]')
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[release-1.0.3]')))
     needs: release
     runs-on: ubuntu-latest
     steps:
@@ -44,7 +45,7 @@ jobs:
       - name: Check unpaid production x402 challenge
         run: node scripts/release-smoke.mjs https://policycheck.tools
   publish-mcp:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release-1.0.3]')
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[release-1.0.3]')))
     needs: [release, production]
     runs-on: ubuntu-latest
     permissions:
