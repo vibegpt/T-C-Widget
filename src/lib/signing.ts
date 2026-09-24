@@ -11,7 +11,7 @@ export function canonicalJson(value: unknown): string {
   return '{'+Object.keys(value).sort().map(key=>JSON.stringify(key)+':'+canonicalJson((value as Record<string,unknown>)[key])).join(',')+'}';
 }
 function privateKey() {
-  const seed=process.env.POLICYCHECK_SIGNING_KEY || process.env.POLICYCHECK_TAP_SIGNING_KEY;
+  const seed=(process.env.POLICYCHECK_SIGNING_KEY || process.env.POLICYCHECK_TAP_SIGNING_KEY)?.trim();
   if (!seed || !/^[a-fA-F0-9]{64}$/.test(seed)) throw new Error('PolicyCheck signing key is not configured correctly');
   return createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),Buffer.from(seed,'hex')]),format:'der',type:'pkcs8'});
 }
