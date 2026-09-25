@@ -10,7 +10,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:release": "node --test tests/release/*.test.mjs",
-    "typecheck:release": "tsc --noEmit -p tsconfig.release.json"
+    "typecheck:release": "tsc --noEmit -p tsconfig.release.json",
+    "test:service": "node --import ./tests/service/imports.mjs --test tests/service/*.test.mjs",
+    "eval:policies": "node --import ./tests/service/imports.mjs scripts/evaluate-policies.mjs"
   },
   "dependencies": {
     "@coinbase/x402": "^2.1.0",

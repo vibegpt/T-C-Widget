@@ -1,3 +1,5 @@
+> Agent service beta: [prepaid API, evidence, billing and release guide](public/agent-service.md). Disabled until configured and verified.
+
 # PolicyCheck
 
 Independent, buyer-side seller policy facts for purchasing agents. Returns structured facts, matching source excerpts, retrieval provenance and an Ed25519-signed assessment. It does not issue scores, grades or purchase recommendations. A signature authenticates the issuer and payload; it does not prove that a merchant will honor a policy or that extraction is infallible.

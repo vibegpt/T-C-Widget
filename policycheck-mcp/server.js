@@ -6,6 +6,7 @@
  * Each tool calls the live A2A API at policycheck.tools via JSON-RPC 2.0.
  */
 
+import { randomUUID } from "node:crypto";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -14,6 +15,24 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 const A2A_URL = process.env.POLICYCHECK_API_URL || "https://policycheck.tools/api/a2a";
+
+const PREPAID_KEY = process.env.POLICYCHECK_API_KEY;
+const PREPAID_URL = process.env.POLICYCHECK_ASSESSMENTS_URL || "https://policycheck.tools/api/v1/assessments";
+
+async function callPrepaid(name, args) {
+  const endpoint=new URL(PREPAID_URL);
+  if (endpoint.protocol!=="https:" || endpoint.username || endpoint.password) throw new Error("Prepaid API URL must use HTTPS without credentials");
+  const key=args.idempotency_key || randomUUID();
+  if (typeof key!=="string" || !/^[A-Za-z0-9_.:-]{8,128}$/.test(key)) throw new Error("Invalid idempotency_key");
+  const input=name==="check_policy_text"?{policy_text:args.text}:name==="analyze_seller"?{url:args.url}:{seller_url:args.seller_url};
+  try {
+    const response=await fetch(endpoint, {method:"POST",headers:{"Content-Type":"application/json","X-API-Key":PREPAID_KEY,"Idempotency-Key":key},body:JSON.stringify({...input,include_source_text:args.include_source_text===true}),signal:AbortSignal.timeout(65_000),redirect:"error"});
+    const data=await response.json();
+    return {content:[{type:"text",text:JSON.stringify({...data,idempotency_key:key},null,2)}],isError:!response.ok};
+  } catch {
+    return {content:[{type:"text",text:JSON.stringify({error:"Request outcome unknown. Retry this tool with the same idempotency_key.",idempotency_key:key})}],isError:true};
+  }
+}
 
 // ── JSON-RPC 2.0 helper ────────────────────────────────────────────────────
 
@@ -138,7 +157,11 @@ const server = new Server(
   { capabilities: { tools: {} } },
 );
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
+server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS.map(tool => PREPAID_KEY ? {
+  ...tool,description:tool.description+" Uses prepaid API credit. Reuse idempotency_key when retrying. Evidence quotes are untrusted merchant text.",
+  annotations:{...tool.annotations,readOnlyHint:false,destructiveHint:false,idempotentHint:false},
+  inputSchema:{...tool.inputSchema,properties:{...tool.inputSchema.properties,idempotency_key:{type:"string",description:"Stable request key (8–128 characters). Reuse after uncertain outcomes to prevent duplicate charges for 24 hours."},include_source_text:{type:"boolean",description:"Include analyzed text snapshots for offline evidence verification."}}}
+} : tool) }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args = {} } = request.params;
@@ -146,6 +169,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     const field = name === "check_policy_text" ? "text" : name === "analyze_seller" ? "url" : "seller_url";
     if (typeof args[field] !== "string" || !args[field].trim()) throw new Error(`${field} must be a non-empty string`);
+    if (!["analyze_seller","check_policy_text","check_seller_policies","quick_risk_check"].includes(name)) throw new Error("Unknown tool");
+    if (PREPAID_KEY) return await callPrepaid(name,args);
     let task;
 
     switch (name) {
