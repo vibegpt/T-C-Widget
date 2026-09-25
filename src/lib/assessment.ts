@@ -5,20 +5,20 @@ import { signPayload } from './signing';
 import { writeAuditRecord, hashApiKey } from './audit';
 
 export const API_HEADERS = {'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization, X-API-Key, PAYMENT-SIGNATURE, X-PAYMENT','Access-Control-Expose-Headers':'PAYMENT-REQUIRED, PAYMENT-RESPONSE, EXTENSION-RESPONSES'};
-export type AssessmentContext={apiKey?:string;agentId?:string|null;transactionRef?:string|null;channel?:string;event?:'check'|'signed_assessment'};
+export type AssessmentContext={apiKey?:string;agentId?:string|null;transactionRef?:string|null;channel?:string;event?:'check'|'signed_assessment';billing?:{account_id:string;request_fingerprint:string;amount_micro_usd:number;currency:'USD'}};
 export function requestContext(req: {headers: Headers}, body: Record<string,unknown>, channel: string): AssessmentContext {
   return {apiKey:req.headers.get('x-api-key') || 'anonymous',agentId:typeof body.agent_id==='string'?body.agent_id.slice(0,256):null,transactionRef:typeof body.transaction_ref==='string'?body.transaction_ref.slice(0,256):null,channel};
 }
-export async function analyzeInput(body: unknown) {
+export async function analyzeInput(body: unknown, options?: {includeSourceText?: boolean}) {
   const input=parsePolicyInput(body);
-  return deepAnalyze(input.sellerUrl,input.policyText,{mode:input.mode});
+  return deepAnalyze(input.sellerUrl,input.policyText,{mode:input.mode,...options});
 }
 export function signedResult(result: DeepAnalysisResult, context: AssessmentContext={}) {
   let domain:string|null=null;
   try { domain=new URL(result.seller_url).hostname; } catch { /* raw text has no seller */ }
   const timestamp=new Date().toISOString();
   const envelope={
-    version:'2.1',provider:'policycheck.tools',assessment_id:randomUUID(),timestamp,
+    version:'2.1',...(context.billing?{billing:context.billing}:{}),provider:'policycheck.tools',assessment_id:randomUUID(),timestamp,
     expires_at:new Date(Date.now()+5*60_000).toISOString(),
     seller:{domain,url:domain?result.seller_url:null},agent_id:context.agentId ?? null,transaction_ref:context.transactionRef ?? null,
     flags:result.clauses.map(c=>c.id),clauses_summary:result.clauses.reduce<Record<string,number>>((a,c)=>{a[c.category]=(a[c.category]||0)+1;return a;},{}),
