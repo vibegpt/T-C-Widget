@@ -137,6 +137,16 @@ export async function writeAuditRecord(record: Omit<AuditRecord, "id" | "timesta
   })();
 }
 
+// ── Heartbeat ─────────────────────────────────────────────────────────────────
+
+// Free Upstash databases are deleted after 14 days without commands. The daily
+// cron in vercel.json calls this so a quiet week can't take audit storage down.
+export async function recordStorageHeartbeat(): Promise<string> {
+  const at = new Date().toISOString();
+  await getRedis().set("storage:heartbeat", at);
+  return at;
+}
+
 // ── Read: audit log ───────────────────────────────────────────────────────────
 
 export async function getAuditLog(
