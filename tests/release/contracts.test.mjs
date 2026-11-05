@@ -7,7 +7,7 @@ import {createPublicKey,verify,randomBytes} from 'node:crypto';
 const root=new URL('../../',import.meta.url);
 const state=globalThis.__policyTest={};
 const mocks={
-  'openai':`export default class OpenAI { chat={completions:{create:async p=>{if(globalThis.__policyTest.llmError)throw new Error('offline');if(p.response_format?.type==='json_object'&&!p.messages.some(message=>/json/i.test(message.content)))throw Object.assign(new Error('Missing JSON instruction'),{status:400});const task=JSON.parse(p.messages[1].content);globalThis.__policyTest.prompt=task;const source=task.sources[0];const raw=globalThis.__policyTest.llmOutput ?? {policies:{returns:{facts:{window_days:30},evidence:{window_days:{source_id:source.source_id,quote:'Items may be returned within 30 days of delivery.'}}}},clauses:[]};return {choices:[{message:{content:JSON.stringify(raw)}}]};}}}; }`,
+  'openai':`export default class OpenAI { chat={completions:{create:async p=>{if(globalThis.__policyTest.llmError)throw new Error('offline');if(p.response_format?.type==='json_object'&&!p.messages.some(message=>/json/i.test(message.content)))throw Object.assign(new Error('Missing JSON instruction'),{status:400});globalThis.__policyTest.responseFormat=p.response_format;const task=JSON.parse(p.messages[1].content);globalThis.__policyTest.prompt=task;const source=task.sources[0];const raw=globalThis.__policyTest.llmOutput ?? {policies:{returns:{facts:{window_days:30},evidence:{window_days:{source_id:source.source_id,quote:'Items may be returned within 30 days of delivery.'}}}},clauses:[]};return {choices:[{message:{content:JSON.stringify(raw)}}]};}}}; }`,
   '@upstash/redis':`export class Redis {async set(_key,record){globalThis.__policyTest.auditWrites++;globalThis.__policyTest.lastAudit=JSON.parse(record);} async zadd(){} async zrange(){if(globalThis.__policyTest.auditReadError)throw Error(globalThis.__policyTest.auditReadError);return [];} pipeline(){return {hincrby(){},hset(){},async exec(){}}}}`,
   'next/server':`export class NextRequest extends Request {} export class NextResponse extends Response {static json(value,options){return new NextResponse(JSON.stringify(value),{...options,headers:{'content-type':'application/json',...options?.headers}})}}`,
   '@x402/core/server':`export class HTTPFacilitatorClient {} export class x402ResourceServer {registerExtension(){}} export class x402HTTPResourceServer {constructor(server,routes){globalThis.__policyTest.routes=routes;} async initialize(){if(globalThis.__policyTest.initError)throw Error('init failed');} async processHTTPRequest(){return {type:'payment-verified',paymentPayload:{},paymentRequirements:{},declaredExtensions:{bazaar:{info:{}}}};} async processSettlement(payload){globalThis.__policyTest.settles++;globalThis.__policyTest.settlePayload=payload;return {success:true,transaction:'0xtest',network:'eip155:8453',payer:'0xpayer'};}}`,
@@ -54,6 +54,18 @@ beforeEach(()=>{Object.assign(state,{fetched:[],sourceText:text,fetchError:false
 test('policy-page URL fetches that page once',async()=>{
  const result=await assessment.analyzeInput({url:'https://example.com/policies/refund-policy'});
  assert.deepEqual(state.fetched,['https://example.com/policies/refund-policy']);assert.equal(result.policies.returns.facts.window_days,30);
+});
+test('the model response schema requires evidence for the exact source',async()=>{
+ const result=await assessment.analyzeInput({text});
+ const format=state.responseFormat;
+ assert.equal(format.type,'json_schema');
+ assert.equal(format.json_schema.strict,true);
+ const schema=format.json_schema.schema;
+ assert.deepEqual(schema.$defs.sourceEvidence.properties.source_id.enum,[result.sources[0].id]);
+ const returns=schema.properties.policies.properties.returns.anyOf[0].properties;
+ assert.deepEqual(returns.facts.properties.window_days.type,['number','null']);
+ assert.deepEqual(returns.evidence.properties.window_days.anyOf[0],{$ref:'#/$defs/sourceEvidence'});
+ assert.equal(result.policies.returns.facts.window_days,30);
 });
 test('seller discovery uses origin, deduplicates identical pages and reports partial coverage',async()=>{
  const r=await assessment.analyzeInput({seller_url:'https://example.com/products/one'});
