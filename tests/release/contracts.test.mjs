@@ -7,7 +7,7 @@ import {createPublicKey,verify,randomBytes} from 'node:crypto';
 const root=new URL('../../',import.meta.url);
 const state=globalThis.__policyTest={};
 const mocks={
-  'openai':`export default class OpenAI { chat={completions:{create:async p=>{if(globalThis.__policyTest.llmError)throw new Error('offline');const task=JSON.parse(p.messages[1].content);globalThis.__policyTest.prompt=task;const source=task.sources[0];const raw=globalThis.__policyTest.llmOutput ?? {policies:{returns:{facts:{window_days:30},evidence:{window_days:{source_id:source.source_id,quote:'Items may be returned within 30 days of delivery.'}}}},clauses:[]};return {choices:[{message:{content:JSON.stringify(raw)}}]};}}}; }`,
+  'openai':`export default class OpenAI { chat={completions:{create:async p=>{if(globalThis.__policyTest.llmError)throw new Error('offline');globalThis.__policyTest.modelRequest=p;const task=JSON.parse(p.messages[1].content);globalThis.__policyTest.prompt=task;const source=task.sources[0];const raw=globalThis.__policyTest.llmOutput ?? {policies:{returns:{facts:{window_days:30},evidence:{window_days:{source_id:source.source_id,quote:'Items may be returned within 30 days of delivery.'}}}},clauses:[]};return {choices:[{message:{content:JSON.stringify(raw)}}]};}}}; }`,
   '@upstash/redis':`export class Redis {async set(_key,record){globalThis.__policyTest.auditWrites++;globalThis.__policyTest.lastAudit=JSON.parse(record);} async zadd(){} async zrange(){if(globalThis.__policyTest.auditReadError)throw Error(globalThis.__policyTest.auditReadError);return [];} pipeline(){return {hincrby(){},hset(){},async exec(){}}}}`,
   'next/server':`export class NextRequest extends Request {} export class NextResponse extends Response {static json(value,options){return new NextResponse(JSON.stringify(value),{...options,headers:{'content-type':'application/json',...options?.headers}})}}`,
   '@x402/core/server':`export class HTTPFacilitatorClient {} export class x402ResourceServer {registerExtension(){}} export class x402HTTPResourceServer {constructor(server,routes){globalThis.__policyTest.routes=routes;} async initialize(){if(globalThis.__policyTest.initError)throw Error('init failed');} async processHTTPRequest(){return {type:'payment-verified',paymentPayload:{},paymentRequirements:{},declaredExtensions:{bazaar:{info:{}}}};} async processSettlement(payload){globalThis.__policyTest.settles++;globalThis.__policyTest.settlePayload=payload;return {success:true,transaction:'0xtest',network:'eip155:8453',payer:'0xpayer'};}}`,
@@ -130,9 +130,25 @@ test('verify route rejects a modified envelope',async()=>{
  const r=await(await verifyRoute.POST(request(signed))).json();assert.equal(r.valid,false);assert.equal(r.signature_valid,false);assert.equal(state.auditWrites,0);
 });
 
+test('the configured Luna model receives compatible options and returns evidence-backed facts', async () => {
+ const originalModel = process.env.POLICYCHECK_OPENAI_MODEL;
+ process.env.POLICYCHECK_OPENAI_MODEL = 'gpt-6-luna';
+ try {
+  const result = await assessment.analyzeInput({text});
+  assert.equal(state.modelRequest.model, 'gpt-6-luna');
+  assert.equal(state.modelRequest.reasoning_effort, 'none');
+  assert.equal(result.policies.returns.facts.window_days, 30);
+ } finally {
+  if (originalModel === undefined) delete process.env.POLICYCHECK_OPENAI_MODEL;
+  else process.env.POLICYCHECK_OPENAI_MODEL = originalModel;
+ }
+});
+
 test('extraction diagnostics identify quota and auth failures without exposing upstream details',()=>{
  assert.equal(analyzer.extractionFailureReason({status:429,type:'insufficient_quota',code:'credit_balance_exhausted',message:'secret-key'}),'quota_exhausted');
  assert.equal(analyzer.extractionFailureReason({status:429}),'rate_limited');
+ assert.equal(analyzer.extractionFailureReason({status:404,code:'model_not_found'}),'model_unavailable');
+ assert.equal(analyzer.extractionFailureReason({status:400,message:'private provider error'}),'upstream_request_rejected');
  assert.equal(analyzer.extractionFailureReason({status:401,message:'secret-key'}),'authentication_failed');
  assert.equal(analyzer.extractionFailureReason({message:'secret-key'}),'service_unavailable');
  assert.equal(analyzer.extractionFailureReason(new SyntaxError('private response')),'invalid_response');
