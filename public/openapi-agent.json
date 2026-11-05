@@ -1,0 +1,1181 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "PolicyCheck Prepaid Agent Service",
+    "version": "1.0.0-beta",
+    "description": "Opt-in structured extraction with signed evidence and prepaid billing. Requires operator enablement. See /agent-service.md."
+  },
+  "servers": [
+    {
+      "url": "https://policycheck.tools"
+    }
+  ],
+  "security": [
+    {
+      "ApiKey": []
+    },
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/assessments": {
+      "post": {
+        "operationId": "createPolicyAssessment",
+        "summary": "Extract signed policy facts and evidence; bill once per idempotent success",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.:-]{8,128}$"
+            },
+            "description": "Reuse identical input and key after uncertain outcomes; completed responses retained for 24 hours."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssessmentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed result, including replay without an additional charge",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssessmentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Insufficient prepaid balance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Inactive account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency conflict/in progress/expired reservation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "No supported policy facts; credit not charged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate/concurrency limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency failure or service disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/usage": {
+      "get": {
+        "operationId": "getPolicyCheckBalance",
+        "responses": {
+          "200": {
+            "description": "Authenticated account balance and current price",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Usage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Inactive account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency failure or service disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/checkout": {
+      "post": {
+        "operationId": "createCreditCheckout",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.:-]{8,128}$"
+            },
+            "description": "Reuse identical input and key after uncertain outcomes; completed responses retained for 24 hours."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "pack"
+                ],
+                "properties": {
+                  "pack": {
+                    "enum": [
+                      "starter",
+                      "growth"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Hosted Stripe checkout; balance updates only after paid webhook",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "checkout_url",
+                    "session_id",
+                    "pack",
+                    "currency",
+                    "amount_cents",
+                    "credit_micro_usd"
+                  ],
+                  "properties": {
+                    "checkout_url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "session_id": {
+                      "type": "string"
+                    },
+                    "pack": {
+                      "enum": [
+                        "starter",
+                        "growth"
+                      ]
+                    },
+                    "currency": {
+                      "const": "USD"
+                    },
+                    "amount_cents": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "credit_micro_usd": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Inactive account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency failure or service disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      },
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "AssessmentInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "seller_url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "policy_text": {
+            "type": "string",
+            "minLength": 50,
+            "maxLength": 100000
+          },
+          "include_source_text": {
+            "type": "boolean",
+            "default": false
+          },
+          "agent_id": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "transaction_ref": {
+            "type": "string",
+            "maxLength": 256
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "url"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "seller_url"
+                  ]
+                },
+                {
+                  "required": [
+                    "policy_text"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "required": [
+              "seller_url"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "url"
+                  ]
+                },
+                {
+                  "required": [
+                    "policy_text"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "required": [
+              "policy_text"
+            ],
+            "not": {
+              "required": [
+                "url"
+              ]
+            }
+          }
+        ]
+      },
+      "Evidence": {
+        "type": "object",
+        "required": [
+          "source_id",
+          "quote",
+          "start_char",
+          "end_char",
+          "quote_hash",
+          "analyzed_text_hash",
+          "validation"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string"
+          },
+          "quote": {
+            "type": "string"
+          },
+          "start_char": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end_char": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "quote_hash": {
+            "type": "string"
+          },
+          "analyzed_text_hash": {
+            "type": "string"
+          },
+          "validation": {
+            "const": "exact_substring"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Source": {
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "content_hash",
+          "analyzed_text_hash",
+          "text_normalization",
+          "acquisition",
+          "truncated"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "category": {
+            "type": "string"
+          },
+          "retrieved_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "received_at": {
+            "type": "string"
+          },
+          "content_hash": {
+            "type": "string"
+          },
+          "analyzed_text_hash": {
+            "type": "string"
+          },
+          "text_normalization": {
+            "const": "whitespace_v1"
+          },
+          "acquisition": {
+            "enum": [
+              "server_fetch",
+              "client_provided"
+            ]
+          },
+          "analyzed_text": {
+            "type": "string"
+          },
+          "analyzed_characters": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total_characters": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Policies": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "returns": {
+            "type": "object",
+            "required": [
+              "summary",
+              "facts",
+              "evidence",
+              "field_status"
+            ],
+            "properties": {
+              "summary": {
+                "type": "string"
+              },
+              "facts": {
+                "type": "object",
+                "required": [
+                  "window_days",
+                  "return_shipping",
+                  "restocking_fee",
+                  "refund_method",
+                  "restocking_fee_percent",
+                  "restocking_fee_amount",
+                  "restocking_fee_currency"
+                ],
+                "properties": {
+                  "window_days": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "return_shipping": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "restocking_fee": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "refund_method": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "restocking_fee_percent": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "restocking_fee_amount": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "restocking_fee_currency": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "evidence": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/Evidence"
+                }
+              },
+              "field_status": {
+                "type": "object",
+                "additionalProperties": {
+                  "enum": [
+                    "supported",
+                    "not_extracted",
+                    "rejected"
+                  ]
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "shipping": {
+            "type": "object",
+            "required": [
+              "summary",
+              "facts",
+              "evidence",
+              "field_status"
+            ],
+            "properties": {
+              "summary": {
+                "type": "string"
+              },
+              "facts": {
+                "type": "object",
+                "required": [
+                  "free_threshold_usd",
+                  "estimated_days_min",
+                  "estimated_days_max",
+                  "tracking_provided"
+                ],
+                "properties": {
+                  "free_threshold_usd": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "estimated_days_min": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "estimated_days_max": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "tracking_provided": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "evidence": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/Evidence"
+                }
+              },
+              "field_status": {
+                "type": "object",
+                "additionalProperties": {
+                  "enum": [
+                    "supported",
+                    "not_extracted",
+                    "rejected"
+                  ]
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "legal": {
+            "type": "object",
+            "required": [
+              "summary",
+              "facts",
+              "evidence",
+              "field_status"
+            ],
+            "properties": {
+              "summary": {
+                "type": "string"
+              },
+              "facts": {
+                "type": "object",
+                "required": [
+                  "arbitration",
+                  "class_action_waiver",
+                  "jurisdiction"
+                ],
+                "properties": {
+                  "arbitration": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "class_action_waiver": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "jurisdiction": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "evidence": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/Evidence"
+                }
+              },
+              "field_status": {
+                "type": "object",
+                "additionalProperties": {
+                  "enum": [
+                    "supported",
+                    "not_extracted",
+                    "rejected"
+                  ]
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "pricing": {
+            "type": "object",
+            "required": [
+              "summary",
+              "facts",
+              "evidence",
+              "field_status"
+            ],
+            "properties": {
+              "summary": {
+                "type": "string"
+              },
+              "facts": {
+                "type": "object",
+                "required": [
+                  "auto_renews"
+                ],
+                "properties": {
+                  "auto_renews": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "evidence": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/Evidence"
+                }
+              },
+              "field_status": {
+                "type": "object",
+                "additionalProperties": {
+                  "enum": [
+                    "supported",
+                    "not_extracted",
+                    "rejected"
+                  ]
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "privacy": {
+            "type": "object",
+            "required": [
+              "summary",
+              "facts",
+              "evidence",
+              "field_status"
+            ],
+            "properties": {
+              "summary": {
+                "type": "string"
+              },
+              "facts": {
+                "type": "object",
+                "required": [
+                  "data_sold"
+                ],
+                "properties": {
+                  "data_sold": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "evidence": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/Evidence"
+                }
+              },
+              "field_status": {
+                "type": "object",
+                "additionalProperties": {
+                  "enum": [
+                    "supported",
+                    "not_extracted",
+                    "rejected"
+                  ]
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "warranty": {
+            "type": "object",
+            "required": [
+              "summary",
+              "facts",
+              "evidence",
+              "field_status"
+            ],
+            "properties": {
+              "summary": {
+                "type": "string"
+              },
+              "facts": {
+                "type": "object",
+                "required": [
+                  "duration_months",
+                  "type"
+                ],
+                "properties": {
+                  "duration_months": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "type": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "evidence": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/Evidence"
+                }
+              },
+              "field_status": {
+                "type": "object",
+                "additionalProperties": {
+                  "enum": [
+                    "supported",
+                    "not_extracted",
+                    "rejected"
+                  ]
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "Analysis": {
+        "type": "object",
+        "required": [
+          "signed_assessment",
+          "signature",
+          "policies",
+          "sources",
+          "analysis_status"
+        ],
+        "properties": {
+          "policies": {
+            "$ref": "#/components/schemas/Policies"
+          },
+          "clauses": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "evidence"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "found_in": {
+                  "type": "string"
+                },
+                "is_standard_boilerplate": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "$ref": "#/components/schemas/Evidence"
+                }
+              }
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            }
+          },
+          "analysis_status": {
+            "enum": [
+              "complete",
+              "partial",
+              "text_provided",
+              "no_content",
+              "no_facts",
+              "extraction_failed"
+            ]
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "coverage": {
+            "type": "object",
+            "required": [
+              "attempted",
+              "retrieved",
+              "analyzed"
+            ],
+            "properties": {
+              "attempted": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "retrieved": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "analyzed": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          },
+          "signature": {
+            "type": "string"
+          },
+          "signed_payload_hash": {
+            "type": "string"
+          },
+          "signed_assessment": {
+            "type": "object",
+            "required": [
+              "version",
+              "provider",
+              "assessment_id",
+              "timestamp",
+              "expires_at",
+              "policies",
+              "sources",
+              "billing"
+            ],
+            "properties": {
+              "version": {
+                "const": "2.1"
+              },
+              "provider": {
+                "const": "policycheck.tools"
+              },
+              "assessment_id": {
+                "type": "string"
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "policies": {
+                "$ref": "#/components/schemas/Policies"
+              },
+              "sources": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Source"
+                }
+              },
+              "billing": {
+                "$ref": "#/components/schemas/BillingContext"
+              }
+            }
+          }
+        }
+      },
+      "BillingContext": {
+        "type": "object",
+        "required": [
+          "account_id",
+          "request_fingerprint",
+          "amount_micro_usd",
+          "currency"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "request_fingerprint": {
+            "type": "string"
+          },
+          "amount_micro_usd": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "currency": {
+            "const": "USD"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AssessmentResponse": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "analysis",
+          "billing",
+          "audit_recorded"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "1.0"
+          },
+          "analysis": {
+            "$ref": "#/components/schemas/Analysis"
+          },
+          "billing": {
+            "type": "object",
+            "required": [
+              "account_id",
+              "request_fingerprint",
+              "amount_micro_usd",
+              "currency",
+              "charged"
+            ],
+            "properties": {
+              "account_id": {
+                "type": "string"
+              },
+              "request_fingerprint": {
+                "type": "string"
+              },
+              "amount_micro_usd": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "currency": {
+                "const": "USD"
+              },
+              "charged": {
+                "const": true
+              }
+            },
+            "additionalProperties": false
+          },
+          "audit_recorded": {
+            "const": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Usage": {
+        "type": "object",
+        "required": [
+          "account_id",
+          "currency",
+          "balance_micro_usd",
+          "reserved_micro_usd",
+          "spent_micro_usd",
+          "successful_requests",
+          "price_micro_usd",
+          "idempotency_retention_seconds"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "currency": {
+            "const": "USD"
+          },
+          "balance_micro_usd": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reserved_micro_usd": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "spent_micro_usd": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "successful_requests": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "price_micro_usd": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "idempotency_retention_seconds": {
+            "const": 86400
+          }
+        },
+        "additionalProperties": false
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "retryable"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}
