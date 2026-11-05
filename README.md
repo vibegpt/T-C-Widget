@@ -20,6 +20,8 @@ Use Node 24 for release checks. Install with `npm ci`, then `npm run dev`. Run `
 
 Required server environment: `OPENAI_API_KEY`, `POLICYCHECK_SIGNING_KEY` (32-byte Ed25519 seed, 64 hex characters). Preserve the existing signing seed on deployment. Audit persistence uses `KV_REST_API_URL` and `KV_REST_API_TOKEN`; failures are returned as `audit_recorded:false`.
 
+The extractor defaults to `gpt-4o-mini`. To evaluate OpenAI's replacement in a preview deployment, set `POLICYCHECK_OPENAI_MODEL=gpt-6-luna`. Verify evidence-backed extraction and the audit write before switching production.
+
 Paid service additionally needs `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `X402_PAY_TO_ADDRESS`, `X402_NETWORK` (default `eip155:8453`), and `X402_PRICE` (default `0.03`). CDP credentials are required by default. Explicit `X402_ALLOW_NON_CDP=true` permits an alternate `X402_FACILITATOR_URL`; that configuration does not establish CDP Bazaar indexing.
 
 Audit retrieval requires the same private, high-entropy `X-API-Key` used for requests (at least 24 characters); it is a bearer partition key. Shared anonymous audit history is not exposed.
