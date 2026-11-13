@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PolicyCheck × WebMCP — Trust Verification Demo</title>
+<title>PolicyCheck × WebMCP: Trust Verification Demo</title>
 <meta name="description" content="Demo: Pre-purchase seller trust verification as a WebMCP tool for AI agent commerce workflows.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -94,6 +94,8 @@
   .btn-p:disabled { opacity:0.5; cursor:not-allowed; transform:none; box-shadow:none; }
   .btn-s { background:var(--surface-2); color:var(--dim); }
   .btn-s:hover { color:var(--text); border-color:var(--border-hi); }
+  .ap-note { padding:0 20px 14px; font-size:11px; color:var(--dim); }
+  .ap-note a { color:var(--text); }
 
   ::-webkit-scrollbar { width:5px; }
   ::-webkit-scrollbar-track { background:transparent; }
@@ -142,15 +144,17 @@
 
     <div class="lbl">Seller Policy Excerpt</div>
     <div class="pol">
-      <h3>VoltGear Electronics — Terms of Sale</h3>
+      <h3>VoltGear Electronics: Terms of Sale</h3>
+      <!-- Same sentences, word for word, as voltgear-terms.html (the page PolicyCheck
+           fetches). That file is the source of truth. If you edit one, edit the other. -->
       <div class="pol-text">
         Returns accepted within <strong>14 days</strong> of delivery for unopened items only.
         A <span class="rf">20% restocking fee</span> applies to all returns.
         Opened electronics are <span class="rf">non-refundable</span>.
-        Shipping costs are non-refundable. Warranty claims must be filed within 30 days;
-        all disputes are subject to <span class="rf">binding arbitration</span> in Wilmington, DE.
+        Shipping costs are non-refundable. Warranty claims must be filed within 30 days.
+        All disputes are subject to <span class="rf">binding arbitration</span> in Wilmington, DE.
         Seller's total liability shall not exceed the purchase price of the item.
-        Free shipping on orders over $100; standard delivery 7–14 business days.
+        Free shipping on orders over $100 USD. Standard delivery 7 to 14 business days.
       </div>
     </div>
   </div>
@@ -162,440 +166,25 @@
     </div>
     <div class="ap-log" id="log"></div>
     <div class="ap-ctrl">
-      <button class="btn btn-p" id="run" onclick="runAgent()">▶ Run Agent Purchase Flow</button>
+      <button class="btn btn-p" id="run">▶ Run scripted walkthrough</button>
       <button class="btn btn-s" onclick="document.getElementById('log').innerHTML=''">Clear</button>
     </div>
+    <div class="ap-note">For a real agent run, use the <a href="https://github.com/GoogleChromeLabs/webmcp-extension" target="_blank" rel="noopener">WebMCP extension</a></div>
   </div>
 </div>
 
 <div class="warn" id="warn" style="display:none">
   <div class="warn-box">
     <h2>WebMCP Not Detected</h2>
-    <p>This demo requires <strong>Chrome Canary 146+</strong> with the WebMCP flag enabled.</p>
+    <p>This demo needs <strong>Chrome 150 or later</strong> with the WebMCP flag enabled.</p>
     <p>Enable at <code>chrome://flags/#enable-webmcp-testing</code></p>
+    <p>Without it you can still run the scripted walkthrough. It uses sample data for the seller policy step.</p>
     <p style="margin-top:14px">
-      <button class="btn btn-p" onclick="document.getElementById('warn').style.display='none'">Continue in Mock Mode</button>
+      <button class="btn btn-p" onclick="document.getElementById('warn').style.display='none'">Continue without WebMCP</button>
     </p>
   </div>
 </div>
 
-<script>
-// === Architecture Note ===
-// In production, tools come from TWO separate sources:
-//   1. SELLER TOOLS (browse_products, add_to_cart, checkout) — registered by the seller's page
-//   2. TRUST TOOL (check_seller_policy) — injected by the user's PolicyCheck Chrome extension
-//
-// The seller has NO control over check_seller_policy. PolicyCheck independently
-// fetches and analyzes the seller's policies from its own servers, returning a
-// cryptographically signed assessment (Ed25519) the agent can verify and carry
-// with the transaction.
-//
-// This demo co-locates all tools in one page for simplicity, but in the real
-// world the trust tool comes from the user's browser extension — not the seller.
-
-const SELLER_URL  = 'https://voltgear-demo.shop';
-const POLICY_TEXT = 'Returns accepted within 14 days of delivery for unopened items only. A 20% restocking fee applies to all returns. Opened electronics are non-refundable. Shipping costs are non-refundable. Warranty claims must be filed within 30 days; all disputes are subject to binding arbitration in Wilmington, DE. Seller total liability shall not exceed the purchase price of the item. Free shipping on orders over $100; standard delivery 7-14 business days.';
-
-const PRODUCTS = {
-  'WH-1000': { name: 'Wireless Headphones Pro', price: 249, stock: 12 },
-  'KB-500':  { name: 'Mechanical Keyboard RGB', price: 179, stock: 8  },
-  'MS-300':  { name: 'Ergonomic Mouse',          price: 89,  stock: 23 },
-  'MN-27':   { name: '4K UltraWide Monitor',     price: 599, stock: 3  },
-};
-
-const cart = [];
-let wmReady = false;
-
-// === Mock response — matches /api/v1/signed-assessment schema v2.0 ===
-function makeMockResult() {
-  return {
-    signed_assessment: {
-      version: '2.0',
-      provider: 'policycheck.tools',
-      assessment_id: 'mock-' + Math.random().toString(36).substr(2, 8),
-      timestamp: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-      seller: { domain: 'voltgear-demo.shop', url: SELLER_URL },
-      flags: ['restocking_fee', 'short_return_window', 'binding_arbitration', 'liability_cap'],
-      clauses_summary: { returns: 2, legal: 2 },
-      policies: {
-        returns: {
-          summary: '14-day return window for unopened items only. 20% restocking fee. Opened electronics non-refundable.',
-          facts: { window_days: 14, return_shipping: 'customer_pays', restocking_fee: true, refund_method: 'original_payment' }
-        },
-        shipping: {
-          summary: 'Free shipping on orders over $100. Standard delivery 7–14 business days.',
-          facts: { free_threshold_usd: 100, estimated_days_min: 7, estimated_days_max: 14, tracking_provided: true }
-        },
-        legal: {
-          summary: 'Binding arbitration required for all disputes. Liability capped at purchase price.',
-          facts: { arbitration: true, class_action_waiver: true, jurisdiction: 'Wilmington, DE' }
-        }
-      },
-      clauses: [
-        { id: 'restocking_fee',      category: 'returns', description: '20% restocking fee applies to all returns',                     found_in: 'terms_of_sale', is_standard_boilerplate: false },
-        { id: 'short_return_window', category: 'returns', description: '14-day return window (below industry average of 30 days)',      found_in: 'terms_of_sale', is_standard_boilerplate: false },
-        { id: 'binding_arbitration', category: 'legal',   description: 'All disputes subject to binding arbitration in Wilmington, DE', found_in: 'terms_of_sale', is_standard_boilerplate: true  },
-        { id: 'liability_cap',       category: 'legal',   description: 'Total liability shall not exceed the purchase price',           found_in: 'terms_of_sale', is_standard_boilerplate: true  }
-      ],
-      positives: [
-        'Free shipping on orders over $100',
-        '30-day warranty claim period',
-        'Data is not sold to third parties'
-      ],
-      summary: 'Returns policy has notable restrictions: 20% restocking fee and a 14-day window below industry average. Legal terms include standard arbitration clauses common across major retailers.',
-      analysis_status: 'complete',
-      confidence: 'high'
-    },
-    signature: 'MockSig_' + Math.random().toString(36).substr(2, 40),
-    signed_payload_hash: 'sha256:mock_' + Math.random().toString(36).substr(2, 40),
-    verification_url: 'https://policycheck.tools/api/v1/verify',
-    jwks_url: 'https://policycheck.tools/.well-known/jwks.json'
-  };
-}
-
-// === Register WebMCP tools ===
-async function init() {
-  if (!navigator.modelContext) {
-    document.getElementById('warn').style.display = 'flex';
-    document.getElementById('wm-status').textContent = 'NO WEBMCP';
-    document.getElementById('wm-status').className = 'tag';
-    renderTools();
-    return;
-  }
-
-  wmReady = true;
-  document.getElementById('wm-status').textContent = 'WEBMCP ACTIVE';
-  document.getElementById('wm-status').className = 'tag on';
-
-  // ── Seller tools ──────────────────────────────────────────────────────────
-  navigator.modelContext.registerTool({
-    name: 'browse_products',
-    description: 'Browse available products at VoltGear Electronics. Returns product catalog with names, prices, and stock levels.',
-    inputSchema: { type: 'object', properties: { category: { type: 'string' } } },
-    annotations: { readOnlyHint: 'true' },
-    async execute({ category }) {
-      const items = Object.entries(PRODUCTS).map(([id, p]) => ({ id, ...p }));
-      return { content: [{ type: 'text', text: JSON.stringify({ products: items, total: items.length }) }] };
-    }
-  });
-
-  navigator.modelContext.registerTool({
-    name: 'add_to_cart',
-    description: 'Add a product to the shopping cart by product ID and quantity.',
-    inputSchema: { type: 'object', properties: { productId: { type: 'string' }, quantity: { type: 'number' } }, required: ['productId'] },
-    annotations: { readOnlyHint: 'false' },
-    async execute({ productId, quantity = 1 }) {
-      const p = PRODUCTS[productId];
-      if (!p) return { content: [{ type: 'text', text: `Error: Product ${productId} not found` }] };
-      cart.push({ productId, name: p.name, price: p.price, quantity });
-      return { content: [{ type: 'text', text: JSON.stringify({ added: p.name, quantity, cartTotal: cart.reduce((s, i) => s + i.price * i.quantity, 0), itemsInCart: cart.length }) }] };
-    }
-  });
-
-  navigator.modelContext.registerTool({
-    name: 'checkout',
-    description: 'Complete the purchase. Processes payment for all items in cart.',
-    inputSchema: { type: 'object', properties: { paymentMethod: { type: 'string' }, shippingSpeed: { type: 'string' } }, required: ['paymentMethod'] },
-    annotations: { readOnlyHint: 'false' },
-    async execute({ paymentMethod, shippingSpeed = 'standard' }) {
-      const total    = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-      const shipping = shippingSpeed === 'express' ? 15 : (total >= 100 ? 0 : 9.99);
-      return { content: [{ type: 'text', text: JSON.stringify({
-        status: 'order_confirmed',
-        orderId: 'VG-' + Math.random().toString(36).substr(2, 8).toUpperCase(),
-        items: cart.length, subtotal: total, shipping, grandTotal: total + shipping,
-        paymentMethod, shippingSpeed,
-        estimatedDelivery: shippingSpeed === 'express' ? '2-3 business days' : '7-14 business days'
-      }) }] };
-    }
-  });
-
-  // ── User-installed trust tool (PolicyCheck extension in production) ────────
-  navigator.modelContext.registerTool({
-    name: 'check_seller_policy',
-    description: "Verify a seller's policies before purchase. Returns a structured, cryptographically signed assessment (Ed25519 v2.0) with: policy facts (return window, shipping costs, arbitration clauses), detected clauses labelled as notable or standard boilerplate (is_standard_boilerplate), and a flat flags array of clause IDs. The signed assessment can be independently verified by any party using the public JWKS key. Use before any e-commerce purchase.",
-    inputSchema: {
-      type: 'object',
-      properties: {
-        seller_url:  { type: 'string', description: 'URL of the seller or product page' },
-        policy_text: { type: 'string', description: 'Raw policy text if already available (skips fetch)' }
-      },
-      required: ['seller_url']
-    },
-    // untrustedContentHint per Chrome 149 WebMCP spec: results contain content
-    // extracted from third-party seller websites.
-    annotations: { readOnlyHint: 'true', untrustedContentHint: 'true' },
-    async execute({ seller_url, policy_text }) {
-      try {
-        const r = await fetch('https://policycheck.tools/api/v1/signed-assessment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ seller_url, policy_text })
-        });
-        if (r.ok) return { content: [{ type: 'text', text: JSON.stringify(await r.json()) }] };
-      } catch (_) { /* fall through to mock */ }
-      return { content: [{ type: 'text', text: JSON.stringify(makeMockResult()) }] };
-    }
-  });
-
-  if (navigator.modelContextTesting) {
-    const tools = await navigator.modelContextTesting.listTools();
-    addLog('sys', 'WebMCP initialized', `${tools.length} tools registered via navigator.modelContext`);
-  }
-  document.getElementById('t-count').textContent = '4 TOOLS';
-  renderTools();
-}
-
-// === UI ===
-const TOOL_META = [
-  { name: 'browse_products',     desc: 'Browse product catalog',                    type: 's', icon: '📦' },
-  { name: 'add_to_cart',         desc: 'Add items to cart',                         type: 's', icon: '🛒' },
-  { name: 'checkout',            desc: 'Complete purchase',                          type: 's', icon: '💳' },
-  { name: 'check_seller_policy', desc: 'Signed policy assessment (user extension)',  type: 'p', icon: '🛡️' },
-];
-
-function renderTools() {
-  const seller = TOOL_META.filter(t => t.type === 's');
-  const trust  = TOOL_META.filter(t => t.type === 'p');
-  document.getElementById('tools-ui').innerHTML =
-    seller.map(t => `
-      <div class="tc" id="tc-${t.name}">
-        <div class="tc-icon s">${t.icon}</div>
-        <div><div class="tc-name">${t.name}</div><div class="tc-desc">${t.desc}</div></div>
-        <span class="tc-tag st">SELLER</span>
-      </div>`).join('') +
-    '<div class="tool-origin-divider">User-installed tools (PolicyCheck Extension)</div>' +
-    trust.map(t => `
-      <div class="tc hl" id="tc-${t.name}">
-        <div class="tc-icon p">${t.icon}</div>
-        <div>
-          <div class="tc-name">${t.name}</div>
-          <div class="tc-desc">${t.desc}</div>
-          <div style="font-size:9px;color:var(--accent);margin-top:2px;font-family:var(--mono);">Independent of seller · policycheck.tools</div>
-        </div>
-        <span class="tc-tag tt">USER TOOL</span>
-      </div>`).join('');
-}
-
-function addLog(type, action, detail, cls) {
-  const el = document.getElementById('log');
-  const t  = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const colors = { call:'var(--blue)', result:'var(--green)', pc:'var(--accent)', verify:'var(--green)', warn:'var(--orange)', sys:'var(--faint)', think:'var(--text)' };
-  const icons  = { call:'→', result:'←', pc:'🛡️', verify:'✓', warn:'⚠️', sys:'·', think:'🤖' };
-  const detCls = cls || (type === 'pc' ? 'pc' : type === 'verify' ? 'ok' : '');
-  const d = document.createElement('div');
-  d.className = 'le';
-  d.innerHTML = `<div class="le-time">${t}</div><div class="le-act" style="color:${colors[type]||'var(--text)'}">${icons[type]||'·'} ${esc(action)}</div>${detail ? `<div class="le-det ${detCls}">${esc(detail)}</div>` : ''}`;
-  el.appendChild(d);
-  el.scrollTop = el.scrollHeight;
-}
-
-function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-// === Format signed assessment for the log ===
-function formatAssessment(sa) {
-  const notable     = (sa.clauses || []).filter(c => !c.is_standard_boilerplate);
-  const boilerplate = (sa.clauses || []).filter(c =>  c.is_standard_boilerplate);
-  const p = sa.policies || {};
-  let out = '';
-
-  out += `status: ${sa.analysis_status.toUpperCase()}  confidence: ${sa.confidence.toUpperCase()}\n`;
-  out += `assessment_id: ${sa.assessment_id}\n`;
-  out += `expires_at:    ${sa.expires_at}\n\n`;
-
-  if (p.returns?.facts) {
-    const f = p.returns.facts;
-    out += 'RETURNS:\n';
-    if (f.window_days       !== null) out += `  window:          ${f.window_days} days\n`;
-    if (f.return_shipping        )    out += `  return shipping: ${f.return_shipping}\n`;
-    if (f.restocking_fee    !== null) out += `  restocking fee:  ${f.restocking_fee ? 'YES ⚠' : 'no'}\n`;
-    if (f.refund_method          )    out += `  refund method:   ${f.refund_method}\n`;
-    out += '\n';
-  }
-  if (p.shipping?.facts) {
-    const f = p.shipping.facts;
-    out += 'SHIPPING:\n';
-    if (f.free_threshold_usd !== null) out += `  free over:       $${f.free_threshold_usd}\n`;
-    if (f.estimated_days_min !== null) out += `  delivery:        ${f.estimated_days_min}–${f.estimated_days_max} days\n`;
-    out += '\n';
-  }
-  if (p.legal?.facts) {
-    const f = p.legal.facts;
-    out += 'LEGAL:\n';
-    if (f.arbitration          !== null) out += `  arbitration:     ${f.arbitration ? 'YES' : 'no'}\n`;
-    if (f.class_action_waiver  !== null) out += `  class action waiver: ${f.class_action_waiver ? 'YES' : 'no'}\n`;
-    if (f.jurisdiction              )    out += `  jurisdiction:    ${f.jurisdiction}\n`;
-    out += '\n';
-  }
-
-  if (notable.length > 0) {
-    out += `NOTABLE CLAUSES (${notable.length} — not standard boilerplate):\n`;
-    notable.forEach(c => { out += `  [${c.category}] ${c.id}: ${c.description}\n`; });
-    out += '\n';
-  }
-  if (boilerplate.length > 0) {
-    out += `STANDARD BOILERPLATE (${boilerplate.length} — common across major retailers):\n`;
-    boilerplate.forEach(c => { out += `  [${c.category}] ${c.id}\n`; });
-    out += '\n';
-  }
-  if (sa.positives?.length > 0) {
-    out += 'POSITIVES:\n';
-    sa.positives.forEach(x => { out += `  ✓ ${x}\n`; });
-    out += '\n';
-  }
-
-  out += `SUMMARY: ${sa.summary}\n\n`;
-  out += `signature: ${sa.signature ? sa.signature.slice(0, 24) + '…' : 'n/a'}`;
-  return out;
-}
-
-// === Agent workflow ===
-async function runAgent() {
-  const btn = document.getElementById('run');
-  btn.disabled = true; btn.textContent = '⏳ Running…';
-  document.getElementById('log').innerHTML = '';
-  cart.length = 0;
-  const wait = ms => new Promise(r => setTimeout(r, ms));
-
-  const exec = async (name, args) => {
-    if (wmReady && navigator.modelContextTesting) {
-      const raw = await navigator.modelContextTesting.executeTool(name, JSON.stringify(args));
-      return typeof raw === 'string' ? raw : JSON.stringify(raw);
-    }
-    // Mock fallback
-    if (name === 'browse_products') {
-      return JSON.stringify({ products: Object.entries(PRODUCTS).map(([id, p]) => ({ id, ...p })), total: 4 });
-    }
-    if (name === 'add_to_cart') {
-      const p = PRODUCTS[args.productId];
-      cart.push({ productId: args.productId, name: p.name, price: p.price, quantity: args.quantity || 1 });
-      return JSON.stringify({ added: p.name, quantity: args.quantity || 1, cartTotal: p.price, itemsInCart: 1 });
-    }
-    if (name === 'check_seller_policy') {
-      // Try live API first even in mock mode
-      try {
-        const r = await fetch('https://policycheck.tools/api/v1/signed-assessment', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ seller_url: args.seller_url, policy_text: args.policy_text })
-        });
-        if (r.ok) return JSON.stringify(await r.json());
-      } catch (_) {}
-      return JSON.stringify(makeMockResult());
-    }
-    if (name === 'checkout') {
-      const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-      return JSON.stringify({ status: 'order_confirmed', orderId: 'VG-' + Math.random().toString(36).substr(2, 8).toUpperCase(), items: cart.length, subtotal: total, shipping: 0, grandTotal: total, paymentMethod: args.paymentMethod, shippingSpeed: 'standard', estimatedDelivery: '7-14 business days' });
-    }
-    return '{}';
-  };
-
-  // 1. Discover tools
-  addLog('sys', 'Agent connects to page', 'Discovering tools via navigator.modelContextTesting.listTools()…');
-  await wait(700);
-  if (wmReady && navigator.modelContextTesting) {
-    const tools = await navigator.modelContextTesting.listTools();
-    addLog('result', `Discovered ${tools.length} tools (3 seller + 1 user-installed)`, tools.map(t => t.name || 'unknown').join(', '));
-  } else {
-    addLog('result', 'Discovered 4 tools: 3 seller + 1 user-installed trust tool', 'browse_products, add_to_cart, checkout, check_seller_policy');
-  }
-  await wait(500);
-
-  // 2. Browse products
-  addLog('think', 'Agent: "User wants headphones. Let me browse products first."');
-  await wait(400);
-  addLog('call', 'executeTool("browse_products", {})');
-  await wait(350);
-  addLog('result', 'browse_products →', await exec('browse_products', {}));
-  await wait(500);
-
-  // 3. Add to cart
-  addLog('think', 'Agent: "Wireless Headphones Pro — $249. Adding to cart."');
-  await wait(400);
-  addLog('call', 'executeTool("add_to_cart", { productId: "WH-1000", quantity: 1 })');
-  await wait(350);
-  addLog('result', 'add_to_cart →', await exec('add_to_cart', { productId: 'WH-1000', quantity: 1 }));
-  await wait(700);
-
-  // 4. PolicyCheck trust verification
-  const tcEl = document.getElementById('tc-check_seller_policy');
-  if (tcEl) tcEl.classList.add('active');
-
-  addLog('think', 'Agent: "Before checkout — using my user-installed PolicyCheck tool to verify VoltGear\'s policies. The seller doesn\'t control this assessment."');
-  await wait(600);
-  addLog('call', 'executeTool("check_seller_policy", { seller_url, policy_text })');
-  await wait(400);
-
-  const pcRaw    = await exec('check_seller_policy', { seller_url: SELLER_URL, policy_text: POLICY_TEXT });
-  const pcResult = typeof pcRaw === 'string' ? JSON.parse(pcRaw) : pcRaw;
-  const sa       = pcResult.signed_assessment;
-
-  await wait(300);
-  addLog('pc', `PolicyCheck → ${sa.analysis_status.toUpperCase()} (confidence: ${sa.confidence})`, formatAssessment(sa));
-  await wait(900);
-
-  // 5. Verify signature
-  addLog('think', 'Agent: "Assessment is cryptographically signed. Verifying Ed25519 signature before trusting it."');
-  await wait(500);
-  addLog('call', 'fetch("https://policycheck.tools/api/v1/verify", { signed_assessment, signature })');
-  await wait(400);
-
-  let verifyDetail = '';
-  try {
-    const vr = await fetch('https://policycheck.tools/api/v1/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ signed_assessment: sa, signature: pcResult.signature })
-    });
-    const vd = await vr.json();
-    if (vd.valid) {
-      verifyDetail = `assessment_id: ${vd.assessment_id}\nverified_at:   ${vd.verified_at}\nexpires_at:    ${vd.expires_at}`;
-      addLog('verify', 'Signature VALID — assessment is genuine and untampered', verifyDetail);
-    } else {
-      // Mock signatures fail verification — expected in demo mode
-      addLog('verify', 'Signature verified (mock mode — live signatures verified server-side)', `reason: ${vd.reason || 'mock signature accepted for demo'}`);
-    }
-  } catch (_) {
-    addLog('verify', 'Verify skipped (network unavailable)', 'Live verification available at policycheck.tools/api/v1/verify');
-  }
-  await wait(700);
-
-  // 6. Agent decision based on structured facts
-  const notable        = (sa.clauses || []).filter(c => !c.is_standard_boilerplate);
-  const notableIds     = notable.map(c => c.id).join(', ');
-  const hasRestocking  = sa.flags.includes('restocking_fee');
-  const returnWindow   = sa.policies?.returns?.facts?.window_days;
-
-  addLog('think',
-    `Agent: "PolicyCheck found ${notable.length} notable clause(s): [${notableIds || 'none'}]. ` +
-    (hasRestocking ? 'Restocking fee detected — hidden cost. ' : '') +
-    (returnWindow  ? `Return window: ${returnWindow} days. ` : '') +
-    `Standard boilerplate (arbitration, liability cap) labelled is_standard_boilerplate: true — filtering those out. ` +
-    `Recommending PayPal for buyer protection given the restocking fee and short return window."`
-  );
-  await wait(700);
-
-  // 7. Checkout
-  addLog('call', 'executeTool("checkout", { paymentMethod: "paypal", shippingSpeed: "standard" })');
-  await wait(350);
-  addLog('result', 'checkout →', await exec('checkout', { paymentMethod: 'paypal', shippingSpeed: 'standard' }));
-  await wait(400);
-
-  addLog('sys', 'Workflow complete',
-    `Agent verified seller policies with a signed assessment before purchase.\n` +
-    `Notable clauses: ${notableIds || 'none'}.\n` +
-    `Standard boilerplate filtered: binding_arbitration, liability_cap.\n` +
-    `Chose PayPal for buyer protection. Signed assessment travels with the order.`
-  );
-
-  if (tcEl) tcEl.classList.remove('active');
-  btn.disabled = false;
-  btn.textContent = '▶ Run Agent Purchase Flow';
-}
-
-init();
-</script>
+<script src="/webmcp-demo/demo.js"></script>
 </body>
 </html>
