@@ -10,7 +10,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:release": "node --test tests/release/*.test.mjs",
-    "typecheck:release": "tsc --noEmit -p tsconfig.release.json"
+    "typecheck:release": "tsc --noEmit -p tsconfig.release.json",
+    "typecheck:webmcp": "tsc --noEmit --allowJs --checkJs --strict --target es2022 --lib es2022,dom,dom.iterable --skipLibCheck public/webmcp-demo/demo.js"
   },
   "dependencies": {
     "@coinbase/x402": "^2.1.0",
@@ -55,6 +56,7 @@
     "tsup": "^8.5.0",
     "tsx": "^4.20.6",
     "typescript": "^5",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "webmcp-types": "^0.1.11"
   }
 }
