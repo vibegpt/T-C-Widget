@@ -19,6 +19,9 @@ All keys written to production Upstash must be listed here per project constrain
 ### Next.js 15 dynamic route params
 Route handlers receive `params` as `Promise<{id: string}>` — must `await params` before accessing the id. Test by passing `{params: Promise.resolve({id: '...'})}` from the test file.
 
+### discovery.ts feeds the 402 payment-required header
+`OUTPUT_EXAMPLE` in `src/lib/discovery.ts` is embedded verbatim into the x402 `payment-required` header via `declareDiscoveryExtension`. Any edit to that file changes the Bazaar metadata and therefore the 402 header value. Do not bump `OUTPUT_EXAMPLE.version` or add fields to it as part of a schema version bump — do it in a dedicated Bazaar session after the 402 baseline has been captured and the diff has been confirmed empty.
+
 ### checkAssessment requires provider field
 `checkAssessment` checks `a.provider === 'policycheck.tools'` for `envelopeValid`. The compact envelope omits `provider` by design (saves chars). Tests that check `signature_valid` will pass; tests checking `.valid` or `.fresh` won't — use `verifySignature` directly for compact envelope tests.
 

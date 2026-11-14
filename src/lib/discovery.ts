@@ -12,7 +12,7 @@ export const OUTPUT_EXAMPLE={
     analysis_status:'text_provided',confidence:'medium',fetch_method:'client_provided',
     policies:{returns:{facts:{window_days:30},evidence:{window_days:{source_id:'source_1',quote:'Items may be returned within 30 days of delivery.'}},summary:'1 evidence-backed returns fact(s) extracted.'}},
     clauses:[],flags:[],positives:[],
-    signed_assessment:{version:'2.2',provider:'policycheck.tools',assessment_id:'example-assessment-id',timestamp:'2026-09-23T00:00:00.000Z',expires_at:'2026-09-23T00:05:00.000Z',fetch_method:'client_provided',sources:[{id:'source_1',url:null,acquisition:'client_provided',content_hash:'sha256:EXAMPLE'}],limitations:['Caller-supplied content is not independently retrieved.']},
+    signed_assessment:{version:'2.1',provider:'policycheck.tools',assessment_id:'example-assessment-id',timestamp:'2026-09-23T00:00:00.000Z',expires_at:'2026-09-23T00:05:00.000Z',fetch_method:'client_provided',sources:[{id:'source_1',url:null,acquisition:'client_provided',content_hash:'sha256:EXAMPLE'}],limitations:['Caller-supplied content is not independently retrieved.']},
     signature:'EXAMPLE_NOT_A_VALID_SIGNATURE',signed_payload_hash:'sha256:EXAMPLE',jwks_url:'https://policycheck.tools/.well-known/jwks.json',verification_url:'https://policycheck.tools/api/v1/verify',
   },
 };

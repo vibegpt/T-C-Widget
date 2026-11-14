@@ -375,5 +375,9 @@ Side effect: `warranty.duration_months = 1` often passes on the same run with th
 | `tasks/todo.md` | This plan |
 | `tasks/lessons.md` | NEW |
 
+## Follow-ups
+
+- Bazaar output example still shows version 2.1 and lacks policy_source; update in a dedicated Bazaar session.
+
 ## Review
 _(to be filled after implementation)_
