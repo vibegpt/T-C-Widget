@@ -137,6 +137,29 @@ export async function writeAuditRecord(record: Omit<AuditRecord, "id" | "timesta
   })();
 }
 
+// ── Assessment payload storage (key: assessment:{uuid}, TTL 7 days) ──────────
+// Key written per request; listed in tasks/todo.md per env constraint.
+
+export async function storeAssessmentPayload(id: string, payload: unknown): Promise<void> {
+  try {
+    await getRedis().set(`assessment:${id}`, JSON.stringify({stored_at:new Date().toISOString(),assessment:payload}), {ex:7*24*60*60});
+  } catch {
+    console.warn('PolicyCheck assessment storage unavailable');
+  }
+}
+
+export async function getAssessmentPayload(id: string): Promise<{stored_at:string;assessment:Record<string,unknown>}|null> {
+  try {
+    const raw=await getRedis().get<string>(`assessment:${id}`);
+    if (!raw) return null;
+    const parsed=typeof raw==='string'?JSON.parse(raw):raw;
+    if (!parsed || typeof parsed!=='object' || !parsed.assessment) return null;
+    return parsed as {stored_at:string;assessment:Record<string,unknown>};
+  } catch {
+    return null;
+  }
+}
+
 // ── Read: audit log ───────────────────────────────────────────────────────────
 
 export async function getAuditLog(

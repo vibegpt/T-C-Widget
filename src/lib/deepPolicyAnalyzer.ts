@@ -10,7 +10,7 @@ export type LegalFacts = {arbitration: boolean | null; class_action_waiver: bool
 export type PricingFacts = {auto_renews: boolean | null};
 export type PrivacyFacts = {data_sold: boolean | null};
 export type WarrantyFacts = {duration_months: number | null; type: string | null};
-export type Clause = {id: string; category: string; description: string; found_in: string; is_standard_boilerplate: boolean; evidence: Evidence};
+export type Clause = {id: string; category: string; description: string; found_in: string; is_standard_boilerplate: boolean; evidence: Evidence; origin: 'extraction' | 'fact'};
 export type PolicySource = {id: string; url: string | null; category: string; retrieved_at: string | null; received_at: string; content_hash: string; acquisition: 'server_fetch' | 'client_provided'; analyzed_characters: number; total_characters: number; truncated: boolean};
 export type DeepAnalysisResult = {
   seller_url: string;
@@ -29,6 +29,31 @@ const PATHS: Record<string, string[]> = {
   warranty_policy: ['/policies/warranty-policy','/pages/warranty','/warranty'],
 };
 const BOILERPLATE = new Set(['binding_arbitration','class_action_waiver','termination_at_will','liability_cap','jurisdiction_clause']);
+// Facts that map 1:1 to a clause id when the fact value is `true`.
+// No threshold-based derivations (e.g. short_return_window) — the existing code defines none.
+const FACT_CLAUSES: Array<{policyKey: keyof DeepAnalysisResult['policies']; factKey: string; clauseId: string}> = [
+  {policyKey:'returns', factKey:'restocking_fee', clauseId:'restocking_fee'},
+  {policyKey:'legal',   factKey:'arbitration',         clauseId:'binding_arbitration'},
+  {policyKey:'legal',   factKey:'class_action_waiver',  clauseId:'class_action_waiver'},
+];
+function deriveClausesFromFacts(policies: DeepAnalysisResult['policies'], existing: Clause[], sources: SourceText[]): Clause[] {
+  const seen = new Set(existing.map(c => c.id));
+  const derived: Clause[] = [];
+  for (const {policyKey, factKey, clauseId} of FACT_CLAUSES) {
+    if (seen.has(clauseId)) continue; // LLM clause wins
+    const pol = policies[policyKey];
+    if (!pol) continue;
+    const facts = pol.facts as Record<string, unknown>;
+    if (facts[factKey] !== true) continue;
+    const ev = (pol.evidence as Record<string, Evidence>)[factKey];
+    if (!ev) continue;
+    const src = sources.find(s => s.source.id === ev.source_id);
+    if (!src) continue;
+    const foundIn = src.source.category;
+    derived.push({id:clauseId, category:CLAUSES[clauseId], description:ev.quote, found_in:foundIn, is_standard_boilerplate:foundIn === 'terms_of_service' && BOILERPLATE.has(clauseId), evidence:ev, origin:'fact'});
+  }
+  return derived;
+}
 const CLAUSES: Record<string,string> = {
   return_shipping_fee:'returns',restocking_fee:'returns',short_return_window:'returns',store_credit_only:'returns',no_refund_opened:'returns',final_sale:'returns',exchange_only:'returns',no_refund:'returns',
   binding_arbitration:'legal',class_action_waiver:'legal',liability_cap:'legal',jurisdiction_clause:'legal',termination_at_will:'legal',auto_renewal:'pricing',price_adjustment_clause:'pricing',hidden_fees:'pricing',data_selling:'privacy',broad_data_collection:'privacy',
@@ -79,7 +104,7 @@ export function normalizeExtraction(raw: unknown, sources: SourceText[]) {
     if (typeof v.id !== 'string' || !CLAUSES[v.id] || !e) { rejected++; continue; }
     const source = sources.find(s=>s.source.id===e.source_id)!;
     const foundIn = source.source.category;
-    clauses.push({id:v.id,category:CLAUSES[v.id],description:e.quote,found_in:foundIn,is_standard_boilerplate:foundIn === 'terms_of_service' && BOILERPLATE.has(v.id),evidence:e});
+    clauses.push({id:v.id,category:CLAUSES[v.id],description:e.quote,found_in:foundIn,is_standard_boilerplate:foundIn === 'terms_of_service' && BOILERPLATE.has(v.id),evidence:e,origin:'extraction'});
   }
   return {policies:policies as DeepAnalysisResult['policies'],clauses,rejected};
 }
@@ -175,8 +200,10 @@ export async function deepAnalyze(sellerUrl: string, policyText?: string | null,
   try {
     const result=normalizeExtraction(await extract(sources),sources); const count=Object.keys(result.policies).length;
     if(result.rejected) limitations.push(`${result.rejected} unsupported or malformed extraction value(s) were discarded.`);
-    const status=count===0 && result.clauses.length===0 ? 'no_facts' : truncated || result.rejected>0 || (mode==='seller' && sources.length<attempted) ? 'partial' : mode==='text'?'text_provided':'complete';
-    return {...base,policies:result.policies,clauses:result.clauses,analysis_method:'llm_evidence_checked',analysis_status:status,confidence:status==='no_facts'?'none':'medium',coverage:{...base.coverage,analyzed:sources.length},summary:`${sources.length} source(s) processed; ${count} policy categories and ${result.clauses.length} clauses supported by source excerpts.`};
+    const derived=deriveClausesFromFacts(result.policies,result.clauses,sources);
+    const clauses=[...result.clauses,...derived];
+    const status=count===0 && clauses.length===0 ? 'no_facts' : truncated || result.rejected>0 || (mode==='seller' && sources.length<attempted) ? 'partial' : mode==='text'?'text_provided':'complete';
+    return {...base,policies:result.policies,clauses,analysis_method:'llm_evidence_checked',analysis_status:status,confidence:status==='no_facts'?'none':'medium',coverage:{...base.coverage,analyzed:sources.length},summary:`${sources.length} source(s) processed; ${count} policy categories and ${clauses.length} clauses supported by source excerpts.`};
   } catch (error) {
     const reason=process.env.OPENAI_API_KEY?.trim() ? extractionFailureReason(error) : 'not_configured';
     const status = obj(error).status;

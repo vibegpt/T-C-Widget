@@ -8,7 +8,7 @@ import { registerExactEvmScheme } from "@x402/evm/exact/server";
 import { createFacilitatorConfig } from "@coinbase/x402";
 import { declareDiscoveryExtension, bazaarResourceServerExtension } from "@x402/extensions/bazaar";
 import { isBillableAnalysis } from "@/lib/deepPolicyAnalyzer";
-import { analyzeInput, signedResult, recordAssessment, requestContext, API_HEADERS } from "@/lib/assessment";
+import { analyzeInput, signedResult, recordAssessment, requestContext, formatResponse, API_HEADERS } from "@/lib/assessment";
 import { InputError, parsePolicyInput } from "@/lib/policy-input";
 import { POLICY_DESCRIPTION, INPUT_SCHEMA, OUTPUT_EXAMPLE } from "@/lib/discovery";
 
@@ -120,10 +120,11 @@ export async function POST(req: NextRequest) {
 
     // Payment verified → validate & analyse first, settle only on success
     if (result.type === "payment-verified") {
+      const format=body.format==='compact'?'compact':'full';
       const analysisResult = signedResult(await analyzeInput(body), context);
       if (!isBillableAnalysis(analysisResult)) {
         const audit_recorded = await recordAssessment(analysisResult, context, Date.now()-start);
-        return NextResponse.json({ error: "No billable analysis produced", payment: {settled:false}, analysis: analysisResult, audit_recorded }, {
+        return NextResponse.json({ error: "No billable analysis produced", payment: {settled:false}, analysis: formatResponse(analysisResult,audit_recorded,format), audit_recorded }, {
           status: analysisResult.analysis_status === "extraction_failed" ? 503 : 422, headers: API_HEADERS,
         });
       }
@@ -161,7 +162,7 @@ export async function POST(req: NextRequest) {
             network: settleResult.network,
             payer: settleResult.payer,
           },
-          analysis: analysisResult,
+          analysis: formatResponse(analysisResult,audit_recorded,format),
           audit_recorded,
         },
         { headers },

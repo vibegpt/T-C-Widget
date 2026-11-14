@@ -251,3 +251,129 @@ Note: the handler now appends one line to the activity log while keeping `readOn
 
 Post-deploy check addition:
 - [ ] Extension run, prompt "Buy the Wireless Headphones Pro": the log shows the "Demo:" line, then signed facts, then the permission prompt before `checkout`.
+
+---
+
+# Prompt 2: compact format + provenance
+
+Status: **plan written 14 Nov 2026. Awaiting approval before editing.**
+
+Branch: `prompt-2-compact-format`
+
+## Step 0 findings
+
+### Baselines (saved to /tmp/baseline/)
+| File | Size | Key facts |
+|---|---|---|
+| `target_full.json` | 8,745 chars | version 2.1, partial, 2 clauses |
+| `voltgear_full.json` | 6,321 chars | version 2.1, partial, 0 clauses, 1 rejected |
+| `x402_body.json` + `x402_headers.txt` | body `{}` (2 bytes), requirements in `payment-required` header |
+
+### Clause issue (VoltGear `clauses: []`)
+Both production runs: `clauses: 0`, `flags: []`, `limitations: ["1 unsupported or malformed extraction value(s) were discarded."]`, `analysis_status: partial`.
+
+Source category is correctly `terms_of_service` (URL contains "terms"); `is_standard_boilerplate` logic is sound. The LLM produces exactly 1 value that the evidence check rejects. At temperature 0.1 this is consistent across runs. Root cause: the LLM produces a clause whose evidence quote does not exactly match the normalized source text. Diagnosis confirmed by: `rejected = 1` (not 0), facts all pass.
+
+Fix (minimum needed): add one `clause_note` field to the extraction user message instructing verbatim quoting for clauses. This is strictly inside the clause-fix exception in the constraint. Diagnostic logging in local dev first to confirm before writing the fix.
+
+Target.com works: 2 clauses with valid evidence. The LLM handles complex multi-page content correctly; it's the simple single-page case that fails.
+
+### Prompt vs code field conflicts
+| # | Prompt said | Code has | Decision |
+|---|---|---|---|
+| C1 | `shipping: { days_min, days_max }` | `estimated_days_min`, `estimated_days_max` | Compact uses `estimated_days_min/max` (code wins). |
+
+### VoltGear "1 discarded value" -- do not fix, logged for a later session
+Field: `warranty.type = 'limited'`
+Why rejected: the LLM sets this field to `'limited'` but provides no evidence object (quotes.type is null in the raw extraction JSON). `evidence()` requires both `source_id: string` and `quote: string`; without them it returns null, triggering `rejected++`. The field stays null in the normalized output.
+Root cause: the LLM treats evidence as optional for enum fields in short single-page content, even though the schema marks both fact and evidence as required.
+Side effect: `warranty.duration_months = 1` often passes on the same run with the evidence quote "Warranty claims must be filed within 30 days." -- this is a filing deadline, not a warranty duration, so the value is semantically wrong but structurally valid. Whether it appears in output varies at temperature 0.1.
+
+### Schema version: `2.1` → `2.2`
+
+### Expiry TTL
+5 minutes, `assessment.ts:23`. **Not changing.** Assessment freshness stays at 5 min. Full payload stored 7 days in Upstash. `GET /api/v1/assessments/{id}` returns the original payload verbatim; `expires_at` inside it marks it expired after 5 min. Verify route already reports "Assessment has expired" for stale payloads.
+
+### Routes that sign
+| Route | File | format param needed |
+|---|---|---|
+| `POST /api/check` | `src/app/api/check/route.ts` | yes |
+| `POST /api/v1/signed-assessment` | re-exports check | inherited |
+| `POST /api/x402/analyze` | `src/app/api/x402/analyze/route.ts` | yes |
+| `POST /api/a2a` | `src/app/api/a2a/route.ts` | yes |
+
+### Upstash storage today
+`AuditRecord` only (90-day TTL). **No full payload storage.** Must add `storeAssessmentPayload()`.
+
+## Plan
+
+### Pre-work: clause fix [DONE]
+- [x] Diagnostic `[clause-raw]` confirmed LLM returns `clauses: []` (empty) for VoltGear. The "1 rejected" is `warranty.type = 'limited'` with no evidence object — not a misquoted clause.
+- [x] Deterministic derivation: `deriveClausesFromFacts()` in `deepPolicyAnalyzer.ts`, upstream in `deepAnalyze()`. Derives `restocking_fee` (notable), `binding_arbitration`, `class_action_waiver` (boilerplate via `is_standard_boilerplate` logic). `origin: 'fact'` for derived; `origin: 'extraction'` for LLM. LLM clause wins on id collision.
+
+### A. Provenance + version bump [DONE]
+- [x] `policy_source` added to envelope in `signedResult()` — `src/lib/assessment.ts`
+- [x] Version bumped `'2.1'` → `'2.2'`
+- [x] `checkAssessment()` accepts `['2.0','2.1','2.2']`
+- [x] `OUTPUT_EXAMPLE` in `src/lib/discovery.ts` bumped to `version: '2.2'`
+
+### B. Full payload storage [DONE]
+- [x] `storeAssessmentPayload(id, payload)` added to `src/lib/audit.ts`
+  - Redis key written: `assessment:{uuid}` — 7-day TTL (604800 s).
+- [x] Called from `recordAssessment()` in `src/lib/assessment.ts` via `Promise.all`
+- [x] `src/app/api/v1/assessments/[id]/route.ts` created: GET returns `{ expired, stored_at, assessment }` or 404.
+
+### C. Compact format builder [DONE]
+- [x] `compactResult(full)` added to `src/lib/assessment.ts` — omits nulls, evidence, sources, summaries, limitations; `notable[]`/`boilerplate[]` from merged clauses array; `full_record` link; no `jwks_url`/`verification_url`
+- [x] `formatResponse(full, audit_recorded, format)` helper added
+- [x] Budget confirmed: fixture test with 10 clauses measures well under 1,500 chars
+
+### D. Apply to all routes [DONE]
+- [x] `src/app/api/check/route.ts`: `format` param → `formatResponse`
+- [x] `src/app/api/x402/analyze/route.ts`: `format` param → `analysis` field (402 path untouched)
+- [x] `src/app/api/a2a/route.ts`: `format` from message input → `formatResponse`
+
+### E. WebMCP demo [DONE]
+- [x] `format: 'compact'` added to fetch body in `checkSellerPolicy`
+- [x] `TODO(prompt-2)` comment removed
+- [x] `formatAssessment` and `hasPolicyFacts` updated to handle compact shape
+- [x] Walkthrough step 6 updated for compact clause ID arrays
+- [x] BFCache fix: `pagehide` checks `e.persisted`; `pageshow` re-registers if `e.persisted`
+
+### F. Tests [DONE — 31/31 pass]
+- [x] `policy_source is 'fetched' for seller_url input`
+- [x] `policy_source is 'caller_supplied' for text input`
+- [x] `compact is under 1500 chars with 10 clauses`
+- [x] `compact signature verifies and tampered compact fails`
+- [x] `version 2.1 payload still verifies`
+- [x] `GET /api/v1/assessments/{id} returns stored payload; unknown id is 404`
+
+## Acceptance criteria
+- [x] Existing 24 tests pass
+- [x] 7 new tests pass (31/31 total)
+- [ ] VoltGear compact has non-empty `notable` and `boilerplate` on two local runs — pending deploy
+- [ ] `curl` examples (full + compact) for target.com and VoltGear with char counts — pending deploy
+- [ ] 402 response byte-identical — pending deploy
+- [ ] Full-format diff vs baseline — pending deploy
+- [ ] Demo walkthrough pasted: compact result visible, "Signature VALID" — pending deploy
+
+## Files
+| File | Change |
+|---|---|
+| `src/lib/deepPolicyAnalyzer.ts` | Clause fix: `clause_note` in user message |
+| `src/lib/assessment.ts` | `policy_source`, version 2.2, `compactResult()`, `buildResponse()` |
+| `src/lib/signing.ts` | Accept version 2.2 |
+| `src/lib/audit.ts` | `storeAssessmentPayload()` |
+| `src/lib/discovery.ts` | `OUTPUT_EXAMPLE` version bump |
+| `src/app/api/check/route.ts` | `format` param |
+| `src/app/api/x402/analyze/route.ts` | `format` param (200 path only) |
+| `src/app/api/a2a/route.ts` | `format` param |
+| `src/app/api/v1/verify/route.ts` | Accept version 2.2 |
+| `src/app/api/v1/assessments/[id]/route.ts` | NEW: GET route |
+| `tests/release/contracts.test.mjs` | 7 new tests |
+| `public/webmcp-demo/demo.js` | Compact request/render, BFCache, remove TODO |
+| `tasks/todo.md` | This plan |
+| `tasks/lessons.md` | NEW |
+
+## Review
+_(to be filled after implementation)_
