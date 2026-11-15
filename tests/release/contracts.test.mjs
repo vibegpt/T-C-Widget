@@ -194,6 +194,10 @@ test('compact signature verifies and tampered compact fails',async()=>{
  // Fresh compact: signature_valid
  const checked=signing.checkAssessment(compact.signed_assessment,compact.signature);
  assert.equal(checked.signature_valid,true);
+ assert.equal(checked.valid,true,'compact envelope must be fully valid (requires provider + timestamp)');
+ assert.equal(checked.fresh,true);
+ assert.equal(compact.signed_assessment.provider,'policycheck.tools');
+ assert.ok(typeof compact.signed_assessment.timestamp==='string' && compact.signed_assessment.timestamp.length>0);
  // Tampered: should fail
  const altered=structuredClone(compact.signed_assessment);altered.confidence='high';
  assert.equal(signing.verifySignature(altered,compact.signature),false);
