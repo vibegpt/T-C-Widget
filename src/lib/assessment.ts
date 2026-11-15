@@ -37,8 +37,8 @@ export function compactResult(full: ReturnType<typeof signedResult>) {
   const sa=full.signed_assessment;
   // Build compact envelope — omit jwks_url and verification_url (static, documented, budget)
   const compact: Record<string,unknown>={
-    version:'2.2', provider:'policycheck.tools', assessment_id:sa.assessment_id, seller:sa.seller.domain,
-    policy_source:sa.policy_source, status:full.analysis_status, confidence:full.confidence,
+    version:'2.2', provider:'policycheck.tools', assessment_id:sa.assessment_id, timestamp:sa.timestamp,
+    seller:sa.seller.domain, policy_source:sa.policy_source, status:full.analysis_status, confidence:full.confidence,
   };
   // Policy facts: strip nulls, omit empty categories
   for (const cat of COMPACT_POLICY_KEYS) {

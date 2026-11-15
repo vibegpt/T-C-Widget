@@ -178,7 +178,7 @@ test('compact is under 1500 chars with 10 clauses',()=>{
  const clauseIds=['restocking_fee','binding_arbitration','class_action_waiver','mandatory_registration','deceptive_pricing','auto_renew','data_sale','third_party_sharing','arbitration_waiver','no_refund_policy'];
  const fakeClauses=clauseIds.map((id,i)=>({id,category:'legal',description:'test clause',found_in:'terms_of_service',is_standard_boilerplate:i<5,evidence:{source_id:'s1',quote:'test'},origin:'extraction'}));
  const fakeFull={
-  signed_assessment:{version:'2.2',assessment_id:'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',seller:{domain:'example.com',url:'https://example.com'},policy_source:'caller_supplied',expires_at:new Date(Date.now()+5*60_000).toISOString()},
+  signed_assessment:{version:'2.2',assessment_id:'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',timestamp:new Date().toISOString(),seller:{domain:'example.com',url:'https://example.com'},policy_source:'caller_supplied',expires_at:new Date(Date.now()+5*60_000).toISOString()},
   analysis_status:'partial',confidence:'moderate',
   policies:{returns:{facts:{window_days:30},evidence:{}}},
   clauses:fakeClauses,flags:[],
