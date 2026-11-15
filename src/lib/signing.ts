@@ -33,7 +33,7 @@ export function checkAssessment(assessment: unknown, signature: string) {
   const signatureValid=!!a && typeof a==='object' && verifySignature(a,signature);
   const expiry=typeof a?.expires_at==='string'?Date.parse(a.expires_at):NaN;
   const issued=typeof a?.timestamp==='string'?Date.parse(a.timestamp):NaN;
-  const envelopeValid=signatureValid && a.provider==='policycheck.tools' && ['2.0','2.1'].includes(String(a.version)) && Number.isFinite(expiry) && Number.isFinite(issued) && issued<=Date.now()+30_000 && expiry>issued;
+  const envelopeValid=signatureValid && a.provider==='policycheck.tools' && ['2.0','2.1','2.2'].includes(String(a.version)) && Number.isFinite(expiry) && Number.isFinite(issued) && issued<=Date.now()+30_000 && expiry>issued;
   const fresh=envelopeValid && expiry>Date.now();
   return {valid:fresh,signature_valid:signatureValid,fresh,reason:!signatureValid?'Signature verification failed':!envelopeValid?'Invalid assessment envelope':!fresh?'Assessment has expired':null};
 }

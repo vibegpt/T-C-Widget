@@ -8,7 +8,7 @@ const root=new URL('../../',import.meta.url);
 const state=globalThis.__policyTest={};
 const mocks={
   'openai':`export default class OpenAI { chat={completions:{create:async p=>{if(globalThis.__policyTest.llmError)throw new Error('offline');if(p.response_format?.type==='json_object'&&!p.messages.some(message=>/json/i.test(message.content)))throw Object.assign(new Error('Missing JSON instruction'),{status:400});globalThis.__policyTest.responseFormat=p.response_format;const task=JSON.parse(p.messages[1].content);globalThis.__policyTest.prompt=task;const source=task.sources[0];const raw=globalThis.__policyTest.llmOutput ?? {policies:{returns:{facts:{window_days:30},evidence:{window_days:{source_id:source.source_id,quote:'Items may be returned within 30 days of delivery.'}}}},clauses:[]};return {choices:[{message:{content:JSON.stringify(raw)}}]};}}}; }`,
-  '@upstash/redis':`export class Redis {async set(_key,record){globalThis.__policyTest.auditWrites++;globalThis.__policyTest.lastAudit=JSON.parse(record);} async zadd(){} async zrange(){if(globalThis.__policyTest.auditReadError)throw Error(globalThis.__policyTest.auditReadError);return [];} pipeline(){return {hincrby(){},hset(){},async exec(){}}}}`,
+  '@upstash/redis':`export class Redis {async set(key,record){if(!globalThis.__policyTest.redisStore)globalThis.__policyTest.redisStore={};globalThis.__policyTest.redisStore[key]=record;if(key.startsWith('audit:')){globalThis.__policyTest.auditWrites++;globalThis.__policyTest.lastAudit=JSON.parse(record);}} async get(key){return globalThis.__policyTest.redisStore?.[key]??null;} async zadd(){} async zrange(){if(globalThis.__policyTest.auditReadError)throw Error(globalThis.__policyTest.auditReadError);return [];} pipeline(){return {hincrby(){},hset(){},async exec(){}}}}`,
   'next/server':`export class NextRequest extends Request {} export class NextResponse extends Response {static json(value,options){return new NextResponse(JSON.stringify(value),{...options,headers:{'content-type':'application/json',...options?.headers}})}}`,
   '@x402/core/server':`export class HTTPFacilitatorClient {} export class x402ResourceServer {registerExtension(){}} export class x402HTTPResourceServer {constructor(server,routes){globalThis.__policyTest.routes=routes;} async initialize(){if(globalThis.__policyTest.initError)throw Error('init failed');} async processHTTPRequest(){return {type:'payment-verified',paymentPayload:{},paymentRequirements:{},declaredExtensions:{bazaar:{info:{}}}};} async processSettlement(payload){globalThis.__policyTest.settles++;globalThis.__policyTest.settlePayload=payload;return {success:true,transaction:'0xtest',network:'eip155:8453',payer:'0xpayer'};}}`,
   '@x402/evm/exact/server':`export function registerExactEvmScheme(){}`,
@@ -45,11 +45,12 @@ const rest=await import('../../src/app/api/check/route.ts');
 const fetcher=await import('../../src/lib/policy-analysis.ts');
 const verifyRoute=await import('../../src/app/api/v1/verify/route.ts');
 const auditRoute=await import('../../src/app/api/v1/audit-log/route.ts');
+const assessmentsRoute=await import('../../src/app/api/v1/assessments/[id]/route.ts');
 await import('../../policycheck-mcp/server.js');
 const mcp=state.mcp;
 const text='Items may be returned within 30 days of delivery. Refunds are sent to the original payment method. Read more at https://example.com/help.';
 function request(body){return new Request('https://policycheck.tools/api/test',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});}
-beforeEach(()=>{Object.assign(state,{fetched:[],sourceText:text,fetchError:false,llmError:false,llmOutput:undefined,settles:0,auditWrites:0});});
+beforeEach(()=>{Object.assign(state,{fetched:[],sourceText:text,fetchError:false,llmError:false,llmOutput:undefined,settles:0,auditWrites:0,redisStore:{}});});
 
 test('policy-page URL fetches that page once',async()=>{
  const result=await assessment.analyzeInput({url:'https://example.com/policies/refund-policy'});
@@ -159,4 +160,74 @@ test('audit storage diagnostics never return raw upstream errors',async()=>{
   assert.equal(response.status,503);const body=await response.json();
   assert.equal(body.code,'storage_connection_failed');assert.doesNotMatch(JSON.stringify(body),/private-token/);
  } finally {delete state.auditReadError;}
+});
+
+test('policy_source is fetched for seller_url input',async()=>{
+ const r=assessment.signedResult(await assessment.analyzeInput({seller_url:'https://example.com/returns'}));
+ assert.equal(r.signed_assessment.policy_source,'fetched');
+ assert.equal(r.signed_assessment.version,'2.2');
+});
+
+test('policy_source is caller_supplied for text input',async()=>{
+ const r=assessment.signedResult(await assessment.analyzeInput({text}));
+ assert.equal(r.signed_assessment.policy_source,'caller_supplied');
+ assert.equal(r.signed_assessment.version,'2.2');
+});
+
+test('compact is under 1500 chars with 10 clauses',()=>{
+ const clauseIds=['restocking_fee','binding_arbitration','class_action_waiver','mandatory_registration','deceptive_pricing','auto_renew','data_sale','third_party_sharing','arbitration_waiver','no_refund_policy'];
+ const fakeClauses=clauseIds.map((id,i)=>({id,category:'legal',description:'test clause',found_in:'terms_of_service',is_standard_boilerplate:i<5,evidence:{source_id:'s1',quote:'test'},origin:'extraction'}));
+ const fakeFull={
+  signed_assessment:{version:'2.2',assessment_id:'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',timestamp:new Date().toISOString(),seller:{domain:'example.com',url:'https://example.com'},policy_source:'caller_supplied',expires_at:new Date(Date.now()+5*60_000).toISOString()},
+  analysis_status:'partial',confidence:'moderate',
+  policies:{returns:{facts:{window_days:30},evidence:{}}},
+  clauses:fakeClauses,flags:[],
+ };
+ const compact=assessment.compactResult(fakeFull);
+ const len=JSON.stringify(compact).length;
+ assert.ok(len<=1500,`compact body ${len} chars exceeds 1500`);
+});
+
+test('compact signature verifies and tampered compact fails',async()=>{
+ const full=assessment.signedResult(await assessment.analyzeInput({text}));
+ const compact=assessment.compactResult(full);
+ // Fresh compact: signature_valid
+ const checked=signing.checkAssessment(compact.signed_assessment,compact.signature);
+ assert.equal(checked.signature_valid,true);
+ assert.equal(checked.valid,true,'compact envelope must be fully valid (requires provider + timestamp)');
+ assert.equal(checked.fresh,true);
+ assert.equal(compact.signed_assessment.provider,'policycheck.tools');
+ assert.ok(typeof compact.signed_assessment.timestamp==='string' && compact.signed_assessment.timestamp.length>0);
+ // Tampered: should fail
+ const altered=structuredClone(compact.signed_assessment);altered.confidence='high';
+ assert.equal(signing.verifySignature(altered,compact.signature),false);
+});
+
+test('version 2.1 payload still verifies',()=>{
+ const a={version:'2.1',provider:'policycheck.tools',timestamp:new Date().toISOString(),expires_at:new Date(Date.now()+5*60_000).toISOString()};
+ const {signature}=signing.signPayload(a);
+ const r=signing.checkAssessment(a,signature);
+ assert.equal(r.signature_valid,true);assert.equal(r.fresh,true);
+});
+
+test('GET /api/v1/assessments/{id} returns stored payload; unknown id is 404',async()=>{
+ const r=await(await rest.POST(request({text}))).json();
+ const id=r.signed_assessment.assessment_id;
+ // Stored immediately after POST — should be found and not yet expired
+ const response=await assessmentsRoute.GET(
+  new Request(`https://policycheck.tools/api/v1/assessments/${id}`),
+  {params:Promise.resolve({id})}
+ );
+ assert.equal(response.status,200);
+ const body=await response.json();
+ assert.equal(body.expired,false);
+ assert.ok(typeof body.stored_at==='string');
+ assert.equal(body.assessment.signed_assessment.assessment_id,id);
+ assert.equal(signing.verifySignature(body.assessment.signed_assessment,body.assessment.signature),true);
+ // Unknown id → 404
+ const r404=await assessmentsRoute.GET(
+  new Request('https://policycheck.tools/api/v1/assessments/not-a-real-id'),
+  {params:Promise.resolve({id:'not-a-real-id'})}
+ );
+ assert.equal(r404.status,404);
 });

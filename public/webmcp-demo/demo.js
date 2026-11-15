@@ -153,7 +153,9 @@ async function checkSellerPolicy({ seller_url }, signal) {
   }
   // PolicyCheck does the fetching either way. A store homepage asks it to look
   // for the seller's policy pages; a deeper address asks it to read that page.
-  const body = target.pathname === '/' ? { seller_url: target.href } : { url: target.href };
+  // compact format keeps the signed response under the 1,500-char WebMCP budget.
+  const bodyBase = target.pathname === '/' ? { seller_url: target.href } : { url: target.href };
+  const body = { ...bodyBase, format: 'compact' };
   const unconfirmed = "Tell the user this seller's terms are unconfirmed and ask whether to continue.";
   let r;
   try {
@@ -173,8 +175,6 @@ async function checkSellerPolicy({ seller_url }, signal) {
   if (!r.ok) {
     return toolError(`PolicyCheck could not fetch or read this seller's published terms (status ${r.status}). ${unconfirmed}`, 'TERMS_UNAVAILABLE', true);
   }
-  // TODO(prompt-2): the full response is well over the 1,500 character output
-  // budget. Return the compact format here once Prompt 2 ships it.
   return await r.json();
 }
 
@@ -185,7 +185,8 @@ const mc = document.modelContext
   ?? /** @type {{ modelContext?: WebMCP.ModelContext }} */ (/** @type {unknown} */ (navigator)).modelContext;
 
 const registration = new AbortController();
-window.addEventListener('pagehide', () => registration.abort());
+window.addEventListener('pagehide', e => { if (!e.persisted) registration.abort(); });
+window.addEventListener('pageshow', e => { if (e.persisted && mc) registerTools(mc).catch(console.error); });
 
 /** @param {WebMCP.ModelContext} ctx */
 async function registerTools(ctx) {
@@ -363,73 +364,97 @@ const has = (/** @type {unknown} */ v) => v !== null && v !== undefined;
 /**
  * True when an assessment carries at least one clause or one non-null fact.
  * A signed result can be empty (for example status no_content).
+ * Handles both the full format (sa.policies, sa.clauses) and the compact
+ * format (top-level sa.returns/shipping/legal/…, sa.notable, sa.boilerplate).
  * @param {any} sa
  */
 function hasPolicyFacts(sa) {
+  // Full format
   if (Array.isArray(sa?.clauses) && sa.clauses.length > 0) return true;
-  return Object.values(sa?.policies || {}).some(
-    (/** @type {any} */ cat) => Object.values(cat?.facts || {}).some(has));
+  if (Object.values(sa?.policies || {}).some(
+    (/** @type {any} */ cat) => Object.values(cat?.facts || {}).some(has))) return true;
+  // Compact format: top-level category objects
+  const COMPACT_CATS = ['returns', 'shipping', 'legal', 'pricing', 'privacy', 'warranty'];
+  if (COMPACT_CATS.some(cat => sa?.[cat] && Object.keys(sa[cat]).length > 0)) return true;
+  if (Array.isArray(sa?.notable) && sa.notable.length > 0) return true;
+  if (Array.isArray(sa?.boilerplate) && sa.boilerplate.length > 0) return true;
+  return false;
 }
 
 /**
  * Formats an assessment for the log as plain facts.
+ * Handles both the full format (sa.policies, sa.clauses) and the compact
+ * format (top-level category objects, sa.notable/boilerplate clause ID arrays).
  * @param {any} sa
  * @param {string | null} signature
  */
 function formatAssessment(sa, signature) {
-  /** @type {any[]} */
-  const clauses = sa.clauses || [];
-  const boilerplate = clauses.filter(c => c.is_standard_boilerplate);
-  const other       = clauses.filter(c => !c.is_standard_boilerplate);
-  const p = sa.policies || {};
-  let out = '';
+  // Compact format: seller is a plain string; full format: seller is an object.
+  const isCompact = typeof sa?.seller === 'string';
+  const status = isCompact ? sa.status : sa.analysis_status;
 
-  out += `status: ${String(sa.analysis_status).toUpperCase()}  confidence: ${String(sa.confidence).toUpperCase()}\n`;
+  // Resolve facts from either format
+  const rf = isCompact ? (sa.returns   || {}) : (sa.policies?.returns?.facts   || {});
+  const sf = isCompact ? (sa.shipping  || {}) : (sa.policies?.shipping?.facts  || {});
+  const lf = isCompact ? (sa.legal     || {}) : (sa.policies?.legal?.facts     || {});
+
+  // Clause ID arrays
+  const otherIds       = isCompact ? (sa.notable    || []) : (sa.clauses || []).filter((/** @type {any} */ c) => !c.is_standard_boilerplate).map((/** @type {any} */ c) => c.id);
+  const boilerplateIds = isCompact ? (sa.boilerplate || []) : (sa.clauses || []).filter((/** @type {any} */ c) => c.is_standard_boilerplate).map((/** @type {any} */ c) => c.id);
+  // Full-format clause objects (for description rendering)
+  /** @type {any[]} */
+  const otherClauses = isCompact ? [] : (sa.clauses || []).filter((/** @type {any} */ c) => !c.is_standard_boilerplate);
+
+  let out = '';
+  out += `status: ${String(status).toUpperCase()}  confidence: ${String(sa.confidence).toUpperCase()}\n`;
   out += `assessment_id: ${sa.assessment_id}\n`;
   out += `expires_at:    ${sa.expires_at ?? 'n/a'}\n\n`;
 
-  if (p.returns?.facts) {
-    const f = p.returns.facts;
+  if (Object.keys(rf).length > 0) {
     out += 'RETURNS:\n';
-    if (has(f.window_days))    out += `  window:          ${f.window_days} days\n`;
-    if (f.return_shipping)     out += `  return shipping: ${f.return_shipping}\n`;
-    if (has(f.restocking_fee)) out += `  restocking fee:  ${yesNo(f.restocking_fee)}${has(f.restocking_fee_percent) ? ` (${f.restocking_fee_percent}%)` : ''}\n`;
-    if (f.refund_method)       out += `  refund method:   ${f.refund_method}\n`;
+    if (has(rf.window_days))    out += `  window:          ${rf.window_days} days\n`;
+    if (rf.return_shipping)     out += `  return shipping: ${rf.return_shipping}\n`;
+    if (has(rf.restocking_fee)) out += `  restocking fee:  ${yesNo(rf.restocking_fee)}${has(rf.restocking_fee_percent) ? ` (${rf.restocking_fee_percent}%)` : ''}\n`;
+    if (rf.refund_method)       out += `  refund method:   ${rf.refund_method}\n`;
     out += '\n';
   }
-  if (p.shipping?.facts) {
-    const f = p.shipping.facts;
+  if (Object.keys(sf).length > 0) {
     out += 'SHIPPING:\n';
-    if (has(f.free_threshold_usd)) out += `  free over:       $${f.free_threshold_usd}\n`;
-    if (has(f.estimated_days_min)) out += `  delivery:        ${f.estimated_days_min} to ${f.estimated_days_max} days\n`;
+    if (has(sf.free_threshold_usd)) out += `  free over:       $${sf.free_threshold_usd}\n`;
+    if (has(sf.estimated_days_min)) out += `  delivery:        ${sf.estimated_days_min} to ${sf.estimated_days_max} days\n`;
     out += '\n';
   }
-  if (p.legal?.facts) {
-    const f = p.legal.facts;
+  if (Object.keys(lf).length > 0) {
     out += 'LEGAL:\n';
-    if (has(f.arbitration))         out += `  arbitration:     ${yesNo(f.arbitration)}\n`;
-    if (has(f.class_action_waiver)) out += `  class action waiver: ${yesNo(f.class_action_waiver)}\n`;
-    if (f.jurisdiction)             out += `  jurisdiction:    ${f.jurisdiction}\n`;
+    if (has(lf.arbitration))         out += `  arbitration:     ${yesNo(lf.arbitration)}\n`;
+    if (has(lf.class_action_waiver)) out += `  class action waiver: ${yesNo(lf.class_action_waiver)}\n`;
+    if (lf.jurisdiction)             out += `  jurisdiction:    ${lf.jurisdiction}\n`;
     out += '\n';
   }
 
-  if (other.length > 0) {
-    out += `CLAUSES (${other.length}):\n`;
-    other.forEach(c => { out += `  [${c.category}] ${c.id}: ${c.description}\n`; });
-    out += '\n';
-  }
-  if (boilerplate.length > 0) {
-    out += `STANDARD BOILERPLATE (${boilerplate.length}):\n`;
-    boilerplate.forEach(c => { out += `  [${c.category}] ${c.id}\n`; });
-    out += '\n';
+  if (isCompact) {
+    if (otherIds.length > 0)       out += `NOTABLE (${otherIds.length}): [${otherIds.join(', ')}]\n\n`;
+    if (boilerplateIds.length > 0) out += `STANDARD BOILERPLATE (${boilerplateIds.length}): [${boilerplateIds.join(', ')}]\n\n`;
+    out += `full_record: ${sa.full_record}\n`;
+  } else {
+    if (otherClauses.length > 0) {
+      out += `CLAUSES (${otherClauses.length}):\n`;
+      otherClauses.forEach((/** @type {any} */ c) => { out += `  [${c.category}] ${c.id}: ${c.description}\n`; });
+      out += '\n';
+    }
+    if (boilerplateIds.length > 0) {
+      out += `STANDARD BOILERPLATE (${boilerplateIds.length}):\n`;
+      boilerplateIds.forEach((/** @type {string} */ id) => { out += `  ${id}\n`; });
+      out += '\n';
+    }
+    if (sa.summary) out += `SUMMARY: ${sa.summary}\n\n`;
+    if (Array.isArray(sa.limitations) && sa.limitations.length > 0) {
+      out += 'LIMITATIONS:\n';
+      sa.limitations.forEach((/** @type {unknown} */ x) => { out += `  ${x}\n`; });
+      out += '\n';
+    }
   }
 
-  if (sa.summary) out += `SUMMARY: ${sa.summary}\n\n`;
-  if (Array.isArray(sa.limitations) && sa.limitations.length > 0) {
-    out += 'LIMITATIONS:\n';
-    sa.limitations.forEach((/** @type {unknown} */ x) => { out += `  ${x}\n`; });
-    out += '\n';
-  }
   out += `signature: ${signature ? signature.slice(0, 24) + '…' : 'NONE (sample data, unsigned)'}`;
   return out;
 }
@@ -555,11 +580,12 @@ async function walkthroughSteps(tcEl) {
   // 6. What the agent carries forward: facts, or the plain statement that there are none
   const gotFacts = hasPolicyFacts(sa);
   if (gotFacts) {
-    /** @type {any[]} */
-    const clauses = sa.clauses || [];
-    const boilerplateIds = clauses.filter(c => c.is_standard_boilerplate).map(c => c.id);
-    const otherIds       = clauses.filter(c => !c.is_standard_boilerplate).map(c => c.id);
-    const rf = sa.policies?.returns?.facts || {};
+    // Handle both compact format (sa.notable/boilerplate arrays, top-level sa.returns)
+    // and full format (sa.clauses array, sa.policies.returns.facts)
+    const isCompact = typeof sa?.seller === 'string';
+    const boilerplateIds = isCompact ? (sa.boilerplate || []) : (sa.clauses || []).filter((/** @type {any} */ c) => c.is_standard_boilerplate).map((/** @type {any} */ c) => c.id);
+    const otherIds       = isCompact ? (sa.notable    || []) : (sa.clauses || []).filter((/** @type {any} */ c) => !c.is_standard_boilerplate).map((/** @type {any} */ c) => c.id);
+    const rf = isCompact ? (sa.returns || {}) : (sa.policies?.returns?.facts || {});
     const facts =
       (has(rf.window_days) ? `Return window: ${rf.window_days} days. ` : '') +
       (has(rf.restocking_fee) ? `Restocking fee: ${yesNo(rf.restocking_fee)}. ` : '') +
